@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/build
+**/coverage
+**/storybook-static
+.env
+**/environments/.env.production
+**/environments/.env.local
+.DS_Store
+.idea/*
+.local.docs/*
