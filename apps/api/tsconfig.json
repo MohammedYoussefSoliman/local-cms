@@ -1,0 +1,18 @@
+{
+  "extends": "@cms/configs/tsconfig.node.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "noEmit": false,
+    "types": ["node", "jest"],
+    "paths": {
+      "@/*": ["src/*"],
+      "@cms/domain": ["../../libs/domain/src"],
+      "@cms/contracts": ["../../libs/contracts/src"],
+      "@cms/database": ["../../libs/database/src"]
+    }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

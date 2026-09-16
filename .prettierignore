@@ -1,0 +1,11 @@
+dist
+build
+coverage
+pnpm-lock.yaml
+libs/database/src/migrations
+
+# Markdown is not formatted. The .claude/ rules and skills are prose with
+# hand-aligned tables and deliberate line breaks, and reformatting them
+# produces large diffs that hide the actual edit.
+*.md
+**/*.md

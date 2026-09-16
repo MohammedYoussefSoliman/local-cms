@@ -4,6 +4,7 @@
 **/coverage
 **/storybook-static
 .env
+**/.env
 **/environments/.env.production
 **/environments/.env.local
 .DS_Store

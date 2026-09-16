@@ -1,0 +1,5 @@
+{
+  "extends": "@cms/configs/tsconfig.node.json",
+  "compilerOptions": { "rootDir": "src", "outDir": "dist", "noEmit": true },
+  "include": ["src/**/*.ts"]
+}

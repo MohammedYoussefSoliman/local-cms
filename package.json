@@ -1,0 +1,56 @@
+{
+  "name": "local-cms",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.5.2",
+  "description": "Localization CMS \u2014 centralized application copy for Arabic/English and beyond",
+  "engines": {
+    "node": ">=20",
+    "npm": "please-use-pnpm",
+    "yarn": "please-use-pnpm",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "prepare": "husky",
+    "dev": "pnpm -r --parallel run dev",
+    "dev:api": "pnpm --filter=@cms/api run dev",
+    "dev:dashboard": "pnpm --filter=@cms/dashboard run dev",
+    "build": "pnpm -r run build",
+    "build:api": "pnpm --filter=@cms/api run build",
+    "build:dashboard": "pnpm --filter=@cms/dashboard run build",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "test": "pnpm -r --if-present run test",
+    "test:api": "pnpm --filter=@cms/api run test",
+    "test:e2e": "pnpm --filter=@cms/api run test:e2e",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres",
+    "migration:generate": "pnpm --filter=@cms/database run migration:generate",
+    "migration:create": "pnpm --filter=@cms/database run migration:create",
+    "migration:run": "pnpm --filter=@cms/database run migration:run",
+    "migration:revert": "pnpm --filter=@cms/database run migration:revert",
+    "seed": "pnpm --filter=@cms/database run seed"
+  },
+  "devDependencies": {
+    "@cms/linting": "workspace:*",
+    "@commitlint/cli": "^19.7.1",
+    "@commitlint/config-conventional": "^19.7.1",
+    "@types/node": "^22.10.2",
+    "eslint": "^9.17.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3",
+    "prettier": "^3.4.2",
+    "typescript": "~5.6.3"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix"
+    ],
+    "*.{js,mjs,cjs,json,jsonc,yaml,yml,css,html}": [
+      "prettier --write --ignore-unknown"
+    ]
+  },
+  "license": "UNLICENSED"
+}

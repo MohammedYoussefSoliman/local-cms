@@ -1,0 +1,28 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens. Every spacing, radius, and type step used in the dashboard
+ * comes from here — arbitrary Tailwind values (`text-[14px]`) are banned by
+ * .claude/rules/global-react-components.md precisely so this file stays the
+ * single source of truth.
+ */
+@theme {
+  --color-brand: oklch(0.55 0.19 258);
+  --color-brand-soft: oklch(0.95 0.03 258);
+
+  --text-paragraph-xs: 0.75rem;
+  --text-paragraph-sm: 0.875rem;
+  --text-paragraph-md: 1rem;
+  --text-label-lg: 1.125rem;
+  --text-title-h5: 1.25rem;
+
+  --radius-4: 0.25rem;
+  --radius-8: 0.5rem;
+  --radius-12: 0.75rem;
+}
+
+/* Arabic needs a font with real Arabic coverage; the Latin stack alone
+   falls back to a system face that breaks the vertical rhythm. */
+:root {
+  --font-sans: 'Inter', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+}

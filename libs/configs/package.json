@@ -1,0 +1,12 @@
+{
+  "name": "@cms/configs",
+  "version": "0.1.0",
+  "private": true,
+  "files": [
+    "tsconfig.base.json",
+    "tsconfig.node.json",
+    "tsconfig.react.json",
+    "jest.preset.js"
+  ],
+  "main": "index.js"
+}
