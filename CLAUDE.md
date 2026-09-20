@@ -14,6 +14,10 @@ schema, the API surface, and the delivery phases. Read the relevant section
 before designing anything — the numbered references throughout `.claude/rules/`
 point back at it.
 
+`docs/Backend-Delivery-Plan.md` sequences the remaining backend work as
+tickets B1-B12 and records the decisions that closed six of the architecture
+doc's §15 open items. Read it before starting any backend feature.
+
 **Current phase: 1 (Foundation).** The workspace, database schema, auth, and
 shared packages exist. Feature CRUD (Phase 2), the dashboard UI (Phase 3), and
 the importer (Phase 4) do not yet.
