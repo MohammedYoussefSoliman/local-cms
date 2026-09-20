@@ -10,7 +10,7 @@ is how a secret ends up in a browser bundle.
 
 | Package             | Prefix    | Reaches the browser? | Validated by                         |
 | ------------------- | --------- | -------------------- | ------------------------------------ |
-| `apps/api`          | none      | **no**               | `src/config/env.validation.ts` (Zod) |
+| `apps/backend`          | none      | **no**               | `src/config/env.validation.ts` (Zod) |
 | `apps/dashboard`    | `VITE_`   | **yes, always**      | `src/vite-env.d.ts` (types only)      |
 
 ---
@@ -40,15 +40,15 @@ prefixed variable.
 
 ---
 
-## API variables (`apps/api`)
+## API variables (`apps/backend`)
 
 ### Step 1 — Add it to the Zod schema
 
-`apps/api/src/config/env.validation.ts` is the single source of truth. A
+`apps/backend/src/config/env.validation.ts` is the single source of truth. A
 variable that is not in the schema is stripped and reads as `undefined`.
 
 ```ts
-// apps/api/src/config/env.validation.ts
+// apps/backend/src/config/env.validation.ts
 const envSchema = z.object({
   // …
   ICU_VALIDATION_STRICT: z
@@ -65,7 +65,7 @@ buys nothing. Secrets get a `.min(32)`, the way the JWT secrets do.
 ### Step 2 — Add it to `.env.example` with a placeholder
 
 ```bash
-# apps/api/.env.example
+# apps/backend/.env.example
 ICU_VALIDATION_STRICT=false
 ```
 
@@ -82,7 +82,7 @@ const strict = this.config.getOrThrow<boolean>('ICU_VALIDATION_STRICT');
 const strict = process.env.ICU_VALIDATION_STRICT === 'true';
 ```
 
-`process.env` is read only inside `apps/api/src/config/`.
+`process.env` is read only inside `apps/backend/src/config/`.
 
 Use `getOrThrow` for anything required. `get` with a `??` fallback
 re-introduces the default the schema already owns, in a second place.
@@ -141,4 +141,4 @@ end by listing:
 - Never add a variable to only one of the schema and `.env.example` — the pair
   is what makes a missing variable a clear boot error instead of a mystery.
 - `.env` and `**/.env` are gitignored at the repo root. Verify with
-  `git check-ignore -v apps/api/.env` before writing anything sensitive.
+  `git check-ignore -v apps/backend/.env` before writing anything sensitive.

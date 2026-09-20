@@ -1,6 +1,6 @@
 ---
 paths:
-  - 'apps/api/src/**'
+  - 'apps/backend/src/**'
 ---
 
 # API Authentication & Authorization
@@ -14,7 +14,7 @@ loud 401 in development.
 
 ## Rule 1 — Guards are global, in this order
 
-Registered in `apps/api/src/app.module.ts`:
+Registered in `apps/backend/src/app.module.ts`:
 
 ```ts
 { provide: APP_GUARD, useClass: ThrottlerGuard },
@@ -128,7 +128,7 @@ that is a different question from "which role".
 
 `env.validation.ts` requires both JWT secrets to be ≥32 characters and to
 differ from each other in production. `process.env` is never read outside
-`apps/api/src/config/`.
+`apps/backend/src/config/`.
 
 A secret is never committed, never defaulted to a working value, and never
 logged. `.env.example` carries placeholders only.

@@ -1,6 +1,6 @@
 ---
 paths:
-  - 'apps/api/src/**/*.service.ts'
+  - 'apps/backend/src/**/*.service.ts'
   - 'libs/database/**'
 ---
 

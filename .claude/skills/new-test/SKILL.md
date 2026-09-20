@@ -9,7 +9,7 @@ Two runners, chosen by where the file lives. Do not mix them.
 
 | Location                          | Runner              | Command             |
 | --------------------------------- | ------------------- | ------------------- |
-| `apps/api/**`                     | Jest + `@nestjs/testing` | `pnpm test:api` |
+| `apps/backend/**`                     | Jest + `@nestjs/testing` | `pnpm test:backend` |
 | `apps/dashboard/**`, `libs/ui/**` | Vitest + RTL        | `pnpm --filter=@cms/dashboard test` |
 
 ---
@@ -91,7 +91,7 @@ describe('{Feature}Service', () => {
 });
 ```
 
-Style reference: `apps/api/src/modules/auth/auth.service.spec.ts`.
+Style reference: `apps/backend/src/modules/auth/auth.service.spec.ts`.
 
 A service test never touches a real database. If the behaviour under test is a
 database constraint, it belongs in an E2E spec — see

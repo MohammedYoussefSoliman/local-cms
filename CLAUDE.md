@@ -28,21 +28,21 @@ on and the engines field rejects them).
 ```bash
 pnpm install
 
-# Database — required before the API will boot
+# Database — required before the backend will boot
 pnpm db:up                 # Postgres 16 in Docker
 pnpm migration:run
 pnpm seed                  # bootstrap locales (ar, en); idempotent
 
 # Development
-pnpm dev                   # api + dashboard in parallel
-pnpm dev:api               # NestJS on :4050  (Swagger at /docs in dev)
+pnpm dev                   # backend + dashboard in parallel
+pnpm dev:backend           # NestJS on :4050  (Swagger at /docs in dev)
 pnpm dev:dashboard         # Vite on :4051
 
 # Quality
 pnpm lint / pnpm lint:fix
 pnpm typecheck
 pnpm test                  # every package that defines one
-pnpm test:api              # Jest
+pnpm test:backend          # Jest
 pnpm test:e2e              # needs a migrated database, runs in band
 
 # Migrations
@@ -54,8 +54,8 @@ pnpm migration:run / pnpm migration:revert
 ### Running a single test
 
 ```bash
-pnpm --filter=@cms/api test -- auth.service            # Jest, by name
-pnpm --filter=@cms/api test -- -t 'revokes every session'
+pnpm --filter=@cms/backend test -- auth.service            # Jest, by name
+pnpm --filter=@cms/backend test -- -t 'revokes every session'
 pnpm --filter=@cms/dashboard test -- src/modules/apps  # Vitest, by path
 ```
 
@@ -63,7 +63,7 @@ pnpm --filter=@cms/dashboard test -- src/modules/apps  # Vitest, by path
 
 ```
 apps/
-  api/            @cms/api        NestJS 11 + TypeORM + Postgres
+  backend/        @cms/backend    NestJS 11 + TypeORM + Postgres
   dashboard/      @cms/dashboard  React 19 + Vite 6 + TanStack Query
 libs/
   domain/         @cms/domain     domain types and invariant docs; no deps
@@ -74,7 +74,7 @@ libs/
   linting/        @cms/linting    shared ESLint flat configs (node / react)
 ```
 
-`libs/database` holds the entities rather than `apps/api`, because the
+`libs/database` holds the entities rather than `apps/backend`, because the
 migration CLI and the seeder need them without booting Nest.
 
 ## The one design decision everything else follows from
@@ -147,7 +147,7 @@ hook, CI, editor integrations. Package-local configs were the cause of a
 pre-commit failure that `pnpm lint` could not reproduce.
 
 `pnpm lint` / `pnpm lint:fix` run from the root over the whole workspace. To
-lint one package: `pnpm exec eslint apps/api/src`.
+lint one package: `pnpm exec eslint apps/backend/src`.
 
 **Prettier does not format Markdown** (`.prettierignore`). The `.claude/`
 rules and skills are prose with hand-aligned tables; reformatting them buries
@@ -169,7 +169,7 @@ Skills worth knowing: `/new-nest-module`, `/new-migration`, `/new-module`
 (dashboard), `/new-service-hook`, `/new-component`, `/new-test`, `/env-var`,
 `/health-check`, `/review-pr`, `/create-pr`.
 
-Agents: `audit-api-auth` (run before any PR touching `apps/api`),
+Agents: `audit-api-auth` (run before any PR touching `apps/backend`),
 `audit-hooks`, `audit-module`, `audit-i18n`, `test-gaps`, `find-pattern`.
 
 ## Open decisions (architecture doc §15)

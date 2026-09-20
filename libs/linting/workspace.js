@@ -29,7 +29,7 @@ function scope(configs, files) {
 }
 
 const NODE_PATHS = [
-  'apps/api/**/*.ts',
+  'apps/backend/**/*.ts',
   'libs/contracts/**/*.ts',
   'libs/database/**/*.ts',
   'libs/domain/**/*.ts',

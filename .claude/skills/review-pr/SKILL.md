@@ -48,9 +48,9 @@ Group the changed file list into these buckets:
 | Core library    | `libs/ui/src/**`                          | Barrel exports, breaking changes            |
 | Zustand stores  | `**/store/*.ts`                           | Business logic in setters                   |
 | Components      | `**/*.tsx` (not stories, not test)        | Codex violations                            |
-| API controllers | `apps/api/**/*.controller.ts`             | Auth coverage (A1–A9)                       |
-| API services    | `apps/api/**/*.service.ts`                | Transactions, pagination, N+1               |
-| DTOs            | `apps/api/**/dto/*.ts`                    | Validator coverage, `@Type` on query params |
+| API controllers | `apps/backend/**/*.controller.ts`             | Auth coverage (A1–A9)                       |
+| API services    | `apps/backend/**/*.service.ts`                | Transactions, pagination, N+1               |
+| DTOs            | `apps/backend/**/dto/*.ts`                    | Validator coverage, `@Type` on query params |
 | Entities        | `libs/database/src/entities/*.ts`         | Domain invariants, missing migration        |
 | Migrations      | `libs/database/src/migrations/*.ts`       | Reversible `down()`, constraints            |
 

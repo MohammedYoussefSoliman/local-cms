@@ -36,7 +36,7 @@ importers:
         specifier: ~5.6.3
         version: 5.6.3
 
-  apps/api:
+  apps/backend:
     dependencies:
       '@cms/contracts':
         specifier: workspace:*
