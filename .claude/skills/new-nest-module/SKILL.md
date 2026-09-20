@@ -1,12 +1,12 @@
 ---
 name: new-nest-module
-description: Scaffold a complete NestJS feature module in apps/api — module, controller, service, DTOs, and spec — following the module-structure, auth, HTTP-contract and TypeORM rules. Usage: /new-nest-module locales [entity-name]
+description: Scaffold a complete NestJS feature module in apps/backend — module, controller, service, DTOs, and spec — following the module-structure, auth, HTTP-contract and TypeORM rules. Usage: /new-nest-module locales [entity-name]
 ---
 
 # New NestJS Feature Module
 
 Scaffold a feature module following `.claude/rules/nestjs-module-structure.md`.
-Use `apps/api/src/modules/auth/` as the canonical reference.
+Use `apps/backend/src/modules/auth/` as the canonical reference.
 
 ---
 
@@ -36,7 +36,7 @@ Use `apps/api/src/modules/auth/` as the canonical reference.
 ## Directory to create
 
 ```
-apps/api/src/modules/{feature}/
+apps/backend/src/modules/{feature}/
   {feature}.module.ts
   {feature}.controller.ts
   {feature}.service.ts
@@ -177,7 +177,7 @@ called. See `.claude/rules/nestjs-testing.md`.
 
 ## After scaffolding
 
-1. Register the module in `apps/api/src/app.module.ts`.
+1. Register the module in `apps/backend/src/app.module.ts`.
 2. Add the shared payload/response types to `libs/contracts/src/` and make the
    DTO implement the payload type, so the two cannot drift.
 3. If the feature touches translation values, re-read

@@ -1,19 +1,19 @@
 ---
 paths:
-  - 'apps/api/src/modules/**'
+  - 'apps/backend/src/modules/**'
 ---
 
 # NestJS Feature Module Structure
 
-Every feature in `apps/api/src/modules/` follows this shape. Use
-`apps/api/src/modules/auth/` as the canonical reference.
+Every feature in `apps/backend/src/modules/` follows this shape. Use
+`apps/backend/src/modules/auth/` as the canonical reference.
 
 ---
 
 ## Required files
 
 ```
-apps/api/src/modules/{feature}/
+apps/backend/src/modules/{feature}/
   {feature}.module.ts       ← wiring only
   {feature}.controller.ts   ← HTTP surface; no business logic
   {feature}.service.ts      ← business logic; no HTTP types

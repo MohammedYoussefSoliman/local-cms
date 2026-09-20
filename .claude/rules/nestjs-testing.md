@@ -1,7 +1,7 @@
 ---
 paths:
-  - 'apps/api/**/*.spec.ts'
-  - 'apps/api/test/**'
+  - 'apps/backend/**/*.spec.ts'
+  - 'apps/backend/test/**'
 ---
 
 # API Testing
@@ -31,7 +31,7 @@ const moduleRef = await Test.createTestingModule({
 }).compile();
 ```
 
-See `apps/api/src/modules/auth/auth.service.spec.ts`.
+See `apps/backend/src/modules/auth/auth.service.spec.ts`.
 
 ---
 

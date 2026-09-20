@@ -1,6 +1,6 @@
 ---
 paths:
-  - 'apps/api/**'
+  - 'apps/backend/**'
   - 'libs/domain/**'
   - 'libs/database/**'
   - 'libs/contracts/**'

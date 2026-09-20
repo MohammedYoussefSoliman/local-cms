@@ -1,11 +1,11 @@
 {
-  "name": "@cms/api",
+  "name": "@cms/backend",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
-    "start": "node dist/apps/api/src/main",
+    "start": "node dist/apps/backend/src/main",
     "start:debug": "nest start --debug --watch",
     "typecheck": "tsc --noEmit",
     "test": "jest",

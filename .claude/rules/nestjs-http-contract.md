@@ -1,7 +1,7 @@
 ---
 paths:
-  - 'apps/api/src/**/*.controller.ts'
-  - 'apps/api/src/**/dto/*.ts'
+  - 'apps/backend/src/**/*.controller.ts'
+  - 'apps/backend/src/**/dto/*.ts'
   - 'libs/contracts/**'
 ---
 
@@ -69,7 +69,7 @@ browser bundle.
 
 ```
 libs/contracts/  →  CreateAppPayload  (plain type, imported by both sides)
-apps/api/…/dto/  →  CreateAppDto      (class + decorators, API only)
+apps/backend/…/dto/  →  CreateAppDto      (class + decorators, API only)
 ```
 
 Keep them aligned: `CreateAppDto implements CreateAppPayload` makes a drift a
