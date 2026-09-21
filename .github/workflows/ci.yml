@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Test-only values. The API refuses to boot on secrets shorter than 32
+  # characters, so these are long enough to pass validation and meaningless
+  # enough to be public.
+  NODE_ENV: test
+  DATABASE_HOST: localhost
+  DATABASE_PORT: '5432'
+  DATABASE_USER: cms
+  DATABASE_PASSWORD: cms
+  DATABASE_NAME: localization_cms
+  JWT_ACCESS_SECRET: ci-access-secret-ci-access-secret-0000
+  JWT_REFRESH_SECRET: ci-refresh-secret-ci-refresh-secret-11
+  JWT_ISSUER: local-cms
+  JWT_AUDIENCE: local-cms-dashboard
+  CORS_ORIGINS: http://localhost:4051
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cms
+          POSTGRES_PASSWORD: cms
+          POSTGRES_DB: localization_cms
+        ports:
+          - 5432:5432
+        # Without this the job races the database and the first migration
+        # fails on a connection refused.
+        options: >-
+          --health-cmd "pg_isready -U cms -d localization_cms"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # `engine-strict` is on, so this also asserts nobody committed an
+      # npm/yarn lockfile.
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Migrate
+        run: pnpm migration:run
+
+      # Asserts idempotence: the second run must add no rows and must not fail.
+      - name: Seed (twice, to prove it is idempotent)
+        run: pnpm seed && pnpm seed
+        env:
+          BOOTSTRAP_ADMIN_EMAIL: ci-admin@example.com
+          BOOTSTRAP_ADMIN_PASSWORD: ci-bootstrap-password
+
+      # A migration whose down() was never written is discovered during an
+      # incident otherwise (.claude/rules/nestjs-typeorm.md Rule 2).
+      - name: Migration round trip
+        run: pnpm migration:revert && pnpm migration:run
+
+      - name: E2E tests
+        run: pnpm test:e2e

@@ -1,21 +1,21 @@
 import { RefreshSession } from '@cms/database';
 import { UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { type JwtConfig, jwtConfig } from '../../config/configuration';
 import { UsersService } from '../users/users.service';
 
 import { AuthService } from './auth.service';
 
-const ENV: Record<string, string> = {
-  JWT_ACCESS_SECRET: 'a'.repeat(32),
-  JWT_REFRESH_SECRET: 'b'.repeat(32),
-  JWT_ACCESS_TTL: '15m',
-  JWT_REFRESH_TTL: '30d',
-  JWT_ISSUER: 'local-cms',
-  JWT_AUDIENCE: 'local-cms-dashboard',
+const JWT: JwtConfig = {
+  accessSecret: 'a'.repeat(32),
+  refreshSecret: 'b'.repeat(32),
+  accessTtl: '15m',
+  refreshTtl: '30d',
+  issuer: 'local-cms',
+  audience: 'local-cms-dashboard',
 };
 
 describe('AuthService', () => {
@@ -41,10 +41,7 @@ describe('AuthService', () => {
           provide: JwtService,
           useValue: { signAsync: jest.fn(async () => 'token') },
         },
-        {
-          provide: ConfigService,
-          useValue: { getOrThrow: (key: string) => ENV[key] },
-        },
+        { provide: jwtConfig.KEY, useValue: JWT },
         { provide: getRepositoryToken(RefreshSession), useValue: sessions },
       ],
     }).compile();

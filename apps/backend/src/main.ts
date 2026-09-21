@@ -1,39 +1,23 @@
 import 'reflect-metadata';
 
-import { Logger, ValidationPipe } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import helmet from 'helmet';
 
 import { AppModule } from './app.module';
+import { configureApp } from './app.setup';
+import { appConfig } from './config/configuration';
+
+import type { ConfigType } from '@nestjs/config';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
-  const config = app.get(ConfigService);
+  const config = app.get<ConfigType<typeof appConfig>>(appConfig.KEY);
 
-  app.use(helmet());
-  app.setGlobalPrefix(config.get<string>('API_PREFIX') ?? 'api');
-  app.enableVersioning();
+  configureApp(app, config);
   app.enableShutdownHooks();
 
-  app.enableCors({
-    origin: config.get<string[]>('CORS_ORIGINS') ?? [],
-    credentials: true,
-  });
-
-  app.useGlobalPipes(
-    new ValidationPipe({
-      // Strips properties with no decorator, so a client cannot smuggle
-      // `role: 'admin'` into a profile update.
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: false },
-    }),
-  );
-
-  if (config.get<string>('NODE_ENV') !== 'production') {
+  if (config.env !== 'production') {
     const document = SwaggerModule.createDocument(
       app,
       new DocumentBuilder()
@@ -45,10 +29,9 @@ async function bootstrap(): Promise<void> {
     SwaggerModule.setup('docs', app, document);
   }
 
-  const port = config.get<number>('PORT') ?? 4050;
-  await app.listen(port);
+  await app.listen(config.port);
 
-  Logger.log(`API listening on http://localhost:${port}`, 'Bootstrap');
+  Logger.log(`API listening on http://localhost:${config.port}`, 'Bootstrap');
 }
 
 void bootstrap();

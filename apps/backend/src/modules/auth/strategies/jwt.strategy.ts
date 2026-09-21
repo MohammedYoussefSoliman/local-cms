@@ -1,11 +1,13 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
 import type { AccessTokenClaims } from '@cms/domain';
 
+import { jwtConfig } from '../../../config/configuration';
 import { UsersService } from '../../users/users.service';
+
+import type { ConfigType } from '@nestjs/config';
 
 /**
  * Validates signature, expiry, issuer and audience (arch doc §5) — checking
@@ -18,15 +20,15 @@ import { UsersService } from '../../users/users.service';
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
-    config: ConfigService,
+    @Inject(jwtConfig.KEY) config: ConfigType<typeof jwtConfig>,
     private readonly users: UsersService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: config.getOrThrow<string>('JWT_ACCESS_SECRET'),
-      issuer: config.getOrThrow<string>('JWT_ISSUER'),
-      audience: config.getOrThrow<string>('JWT_AUDIENCE'),
+      secretOrKey: config.accessSecret,
+      issuer: config.issuer,
+      audience: config.audience,
     });
   }
 

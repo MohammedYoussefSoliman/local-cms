@@ -1,6 +1,6 @@
 import { ENTITIES } from '@cms/database';
 
-import type { Env } from './env.validation';
+import type { DatabaseConfig } from './configuration';
 import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
 /**
@@ -10,18 +10,18 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
  * `synchronize` stays false in every environment — see the note in
  * `libs/database/src/data-source.ts`.
  */
-export function typeOrmConfig(env: Env): TypeOrmModuleOptions {
+export function typeOrmConfig(config: DatabaseConfig): TypeOrmModuleOptions {
   return {
     type: 'postgres',
-    host: env.DATABASE_HOST,
-    port: env.DATABASE_PORT,
-    username: env.DATABASE_USER,
-    password: env.DATABASE_PASSWORD,
-    database: env.DATABASE_NAME,
+    host: config.host,
+    port: config.port,
+    username: config.username,
+    password: config.password,
+    database: config.database,
     entities: ENTITIES,
     synchronize: false,
     migrationsRun: false,
-    logging: env.DATABASE_LOGGING,
+    logging: config.logging,
     autoLoadEntities: false,
   };
 }

@@ -1,8 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 
 import { RefreshSession, User } from '@cms/database';
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
@@ -10,7 +9,10 @@ import { IsNull, LessThan, Repository } from 'typeorm';
 
 import type { AccessTokenClaims } from '@cms/domain';
 
+import { jwtConfig } from '../../config/configuration';
 import { UsersService } from '../users/users.service';
+
+import type { ConfigType } from '@nestjs/config';
 
 type IssuedTokens = {
   accessToken: string;
@@ -23,7 +25,8 @@ export class AuthService {
   constructor(
     private readonly users: UsersService,
     private readonly jwt: JwtService,
-    private readonly config: ConfigService,
+    @Inject(jwtConfig.KEY)
+    private readonly config: ConfigType<typeof jwtConfig>,
     @InjectRepository(RefreshSession)
     private readonly sessions: Repository<RefreshSession>,
   ) {}
@@ -122,15 +125,13 @@ export class AuthService {
 
     // Seconds, not '15m': the string form's type varies across jsonwebtoken
     // versions, and a number means exactly one thing.
-    const expiresIn = this.ttlToSeconds(
-      this.config.getOrThrow<string>('JWT_ACCESS_TTL'),
-    );
+    const expiresIn = this.ttlToSeconds(this.config.accessTtl);
 
     const accessToken = await this.jwt.signAsync(claims, {
-      secret: this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
+      secret: this.config.accessSecret,
       expiresIn,
-      issuer: this.config.getOrThrow<string>('JWT_ISSUER'),
-      audience: this.config.getOrThrow<string>('JWT_AUDIENCE'),
+      issuer: this.config.issuer,
+      audience: this.config.audience,
     });
 
     // Opaque random string, not a JWT: it is only ever compared against a
@@ -145,9 +146,7 @@ export class AuthService {
     refreshToken: string,
     userAgent?: string,
   ): Promise<void> {
-    const ttlSeconds = this.ttlToSeconds(
-      this.config.getOrThrow<string>('JWT_REFRESH_TTL'),
-    );
+    const ttlSeconds = this.ttlToSeconds(this.config.refreshTtl);
 
     await this.sessions.save(
       this.sessions.create({
