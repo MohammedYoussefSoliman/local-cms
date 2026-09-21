@@ -11,6 +11,9 @@ const envSchema = z.object({
     .default('development'),
   PORT: z.coerce.number().int().positive().default(4050),
   API_PREFIX: z.string().default('api'),
+  // Seconds. Drives `Cache-Control: max-age` on the runtime bundle reads;
+  // the ETag is what makes a stale cache cheap to revalidate.
+  RUNTIME_CACHE_MAX_AGE: z.coerce.number().int().nonnegative().default(60),
 
   DATABASE_HOST: z.string().min(1),
   DATABASE_PORT: z.coerce.number().int().positive().default(5432),

@@ -1,3 +1,5 @@
+import { resolve } from 'node:path';
+
 import 'reflect-metadata';
 
 import { config as loadEnv } from 'dotenv';
@@ -5,7 +7,26 @@ import { DataSource } from 'typeorm';
 
 import { ENTITIES } from './entities';
 
-loadEnv();
+/**
+ * Explicit paths rather than a bare `loadEnv()`. The CLI and the seeder run
+ * with `libs/database` as the working directory, where there is no `.env`, so
+ * the default lookup silently fell through to the hard-coded values below —
+ * meaning a changed `DATABASE_PASSWORD` in `apps/backend/.env` was ignored by
+ * `migration:run` while the API picked it up.
+ *
+ * `apps/backend/.env` comes first because that is the file `.env.example`
+ * documents; a repo-root `.env` is the fallback for CI and containers. dotenv
+ * does not overwrite a variable that is already set, so real environment
+ * variables still win over both.
+ */
+const REPO_ROOT = resolve(__dirname, '../../..');
+
+loadEnv({
+  path: [
+    resolve(REPO_ROOT, 'apps/backend/.env'),
+    resolve(REPO_ROOT, '.env'),
+  ],
+});
 
 /**
  * Single DataSource used by both the TypeORM CLI (migrations) and the Nest
@@ -30,6 +51,9 @@ export const dataSourceOptions = {
   logging: process.env.DATABASE_LOGGING === 'true',
 };
 
+/**
+ * Named export only. TypeORM's CLI scans this file's exports for `DataSource`
+ * instances and refuses to run when it finds more than one — a `default` that
+ * re-exports `AppDataSource` counts as a second instance, not as an alias.
+ */
 export const AppDataSource = new DataSource(dataSourceOptions);
-
-export default AppDataSource;
