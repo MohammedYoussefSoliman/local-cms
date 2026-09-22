@@ -1,4 +1,4 @@
-import { BOOTSTRAP_LOCALES } from '@cms/domain';
+import { BOOTSTRAP_LOCALES, canonicalizeLocaleCode } from '@cms/domain';
 
 import { Locale } from '../entities';
 
@@ -19,9 +19,15 @@ const LOCALE_SEED: Record<
 export async function seedLocales(dataSource: DataSource): Promise<void> {
   const repository = dataSource.getRepository(Locale);
 
-  for (const code of BOOTSTRAP_LOCALES) {
+  for (const bootstrapCode of BOOTSTRAP_LOCALES) {
+    // Canonicalized on the way in like every other writer, so the seeder can
+    // never be the one that puts a second spelling of a language in the table.
+    const code = canonicalizeLocaleCode(bootstrapCode);
+
     const existing = await repository.findOne({ where: { code } });
     if (existing) continue;
-    await repository.save(repository.create({ code, ...LOCALE_SEED[code] }));
+    await repository.save(
+      repository.create({ code, ...LOCALE_SEED[bootstrapCode] }),
+    );
   }
 }
