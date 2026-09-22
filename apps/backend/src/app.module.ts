@@ -13,6 +13,7 @@ import { validateEnv } from './config/env.validation';
 import { typeOrmConfig } from './config/typeorm.config';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
+import { LocalesModule } from './modules/locales/locales.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -32,6 +33,7 @@ import { UsersModule } from './modules/users/users.module';
 
     AuthModule,
     HealthModule,
+    LocalesModule,
     UsersModule,
   ],
   providers: [

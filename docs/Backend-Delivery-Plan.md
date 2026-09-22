@@ -203,9 +203,9 @@ that proves the central design decision still holds.
 
 **Done when**
 
-- [ ] `POST /locales {code:'fr'}` returns 201, and a second one returns 409
-- [ ] A non-admin gets 403, not 401
-- [ ] `GET /locales` is paginated
+- [x] `POST /locales {code:'fr'}` returns 201, and a second one returns 409
+- [x] A non-admin gets 403, not 401
+- [x] `GET /locales` is paginated
 
 ---
 
