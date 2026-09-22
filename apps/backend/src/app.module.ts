@@ -13,6 +13,7 @@ import { validateEnv } from './config/env.validation';
 import { typeOrmConfig } from './config/typeorm.config';
 import { AppsModule } from './modules/apps/apps.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { EntriesModule } from './modules/entries/entries.module';
 import { HealthModule } from './modules/health/health.module';
 import { LocalesModule } from './modules/locales/locales.module';
 import { TranslationModulesModule } from './modules/translation-modules/translation-modules.module';
@@ -35,6 +36,7 @@ import { UsersModule } from './modules/users/users.module';
 
     AppsModule,
     AuthModule,
+    EntriesModule,
     HealthModule,
     LocalesModule,
     TranslationModulesModule,

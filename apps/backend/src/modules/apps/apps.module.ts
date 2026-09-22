@@ -19,7 +19,8 @@ import { AppsService } from './apps.service';
   controllers: [AppsController, AppLocalesController],
   providers: [AppsService, AppLocalesService],
   // B4 resolves `:appId` for app-scoped translation modules through this
-  // service rather than reaching for the repository.
-  exports: [AppsService],
+  // service, and B5 asks `AppLocalesService` which languages an app serves —
+  // both go through a service rather than reaching for a repository.
+  exports: [AppsService, AppLocalesService],
 })
 export class AppsModule {}

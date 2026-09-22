@@ -322,11 +322,11 @@ thought before shipping: an archived entry may be the better default.
 
 **Done when**
 
-- [ ] The list returns one row per entry with every locale's value keyed by
+- [x] The list returns one row per entry with every locale's value keyed by
       code, including locales with no value yet
-- [ ] `?missingLocale=ar` returns only entries with no `ar` value
-- [ ] A module with 500 entries × 4 locales is one query, not 500
-- [ ] Two entries with the same key in one module → 409
+- [x] `?missingLocale=ar` returns only entries with no `ar` value
+- [x] A module with 500 entries × 4 locales is one query, not 500
+- [x] Two entries with the same key in one module → 409
 
 ---
 

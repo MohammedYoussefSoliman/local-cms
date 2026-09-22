@@ -49,6 +49,21 @@ export class AppLocalesService {
   }
 
   /**
+   * The codes of the languages this app currently serves. Narrow on purpose:
+   * the translation table asks this once per page render and needs the column
+   * set, not the rows (typeorm Rule 7).
+   */
+  async findEnabledCodes(appId: string): Promise<string[]> {
+    const records = await this.appLocales.find({
+      where: { appId, isEnabled: true },
+      relations: { locale: true },
+      order: { locale: { code: 'ASC' } },
+    });
+
+    return records.map((record) => record.locale.code);
+  }
+
+  /**
    * Enabling is an upsert: a language switched off earlier still has its row,
    * carrying the fallback that was configured for it, and turning it back on
    * should restore that rather than silently discard it.
