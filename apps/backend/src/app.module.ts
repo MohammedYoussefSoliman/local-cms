@@ -15,6 +15,7 @@ import { AppsModule } from './modules/apps/apps.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { LocalesModule } from './modules/locales/locales.module';
+import { TranslationModulesModule } from './modules/translation-modules/translation-modules.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -36,6 +37,7 @@ import { UsersModule } from './modules/users/users.module';
     AuthModule,
     HealthModule,
     LocalesModule,
+    TranslationModulesModule,
     UsersModule,
   ],
   providers: [

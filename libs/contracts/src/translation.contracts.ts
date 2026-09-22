@@ -1,11 +1,4 @@
-import type { ContentType, ModuleScope, TranslationStatus } from '@cms/domain';
-
-export type CreateModulePayload = {
-  name: string;
-  slug: string;
-  scope: ModuleScope;
-  description?: string;
-};
+import type { ContentType, TranslationStatus } from '@cms/domain';
 
 export type CreateEntryPayload = {
   key: string;

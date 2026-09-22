@@ -281,10 +281,10 @@ is left to `ck_modules_scope_app_id` to reject as a 422.
 
 **Done when**
 
-- [ ] Two `products` modules in one app → 409
-- [ ] Two global `authentication` modules → 409 (this is the one a plain
+- [x] Two `products` modules in one app → 409
+- [x] Two global `authentication` modules → 409 (this is the one a plain
       `UNIQUE (app_id, slug)` would have allowed, because `NULL != NULL`)
-- [ ] A `products` module in app A and another in app B both succeed
+- [x] A `products` module in app A and another in app B both succeed
 
 ---
 
