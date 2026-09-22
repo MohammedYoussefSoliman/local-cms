@@ -1,3 +1,4 @@
+export * from './api-key.entity';
 export * from './app-locale.entity';
 export * from './base.entity';
 export * from './locale.entity';
@@ -9,6 +10,7 @@ export * from './translation-value-version.entity';
 export * from './translation-value.entity';
 export * from './user.entity';
 
+import { ApiKey } from './api-key.entity';
 import { AppLocale } from './app-locale.entity';
 import { Locale } from './locale.entity';
 import { LocalizationApp } from './localization-app.entity';
@@ -27,6 +29,7 @@ import { User } from './user.entity';
  * Add every new entity here as well as to the exports above.
  */
 export const ENTITIES = [
+  ApiKey,
   AppLocale,
   Locale,
   LocalizationApp,

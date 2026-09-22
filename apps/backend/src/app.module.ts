@@ -11,12 +11,14 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { appConfig, databaseConfig, jwtConfig } from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { typeOrmConfig } from './config/typeorm.config';
+import { ApiKeysModule } from './modules/api-keys/api-keys.module';
 import { AppsModule } from './modules/apps/apps.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { EntriesModule } from './modules/entries/entries.module';
 import { HealthModule } from './modules/health/health.module';
 import { LocalesModule } from './modules/locales/locales.module';
 import { TranslationModulesModule } from './modules/translation-modules/translation-modules.module';
+import { TranslationsModule } from './modules/translations/translations.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -34,12 +36,14 @@ import { UsersModule } from './modules/users/users.module';
     }),
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
 
+    ApiKeysModule,
     AppsModule,
     AuthModule,
     EntriesModule,
     HealthModule,
     LocalesModule,
     TranslationModulesModule,
+    TranslationsModule,
     UsersModule,
   ],
   providers: [

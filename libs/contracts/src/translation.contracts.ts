@@ -40,9 +40,54 @@ export type UpsertTranslationPayload = {
   expectedVersion?: number;
 };
 
-export type ChangeStatusPayload = {
-  status: Extract<TranslationStatus, 'in_review' | 'published' | 'archived'>;
+/**
+ * The body of `submit-review`, `publish`, `archive` and `rollback`. It carries
+ * no `status`: the route names the transition, so a status in the body would be
+ * a second source of truth able to disagree with the URL the caller chose.
+ *
+ * The note is written to the history row, which is the only place it is ever
+ * read from.
+ */
+export type TranslationNotePayload = {
   changeNote?: string;
+};
+
+/** One localized string, as the CMS returns it. */
+export type TranslationValueResponseData = {
+  id: string;
+  entryId: string;
+  localeId: string;
+  /** Denormalized: every caller addresses a language by code, never by id. */
+  localeCode: string;
+  value: string;
+  status: TranslationStatus;
+  /** Optimistic-concurrency token. Send it back as `expectedVersion`. */
+  version: number;
+  publishedAt: string | null;
+  updatedAt: string;
+};
+
+/**
+ * What a stale `expectedVersion` returns in the 409's `details`, so the
+ * dashboard can show the editor what landed while they were typing instead of
+ * just telling them they lost (invariant Rule 7).
+ */
+export type TranslationConflictData = {
+  currentValue: string;
+  currentVersion: number;
+  currentStatus: TranslationStatus;
+};
+
+/** One append-only history row. Never updated, never deleted (Rule 6). */
+export type TranslationHistoryData = {
+  id: string;
+  translationValueId: string;
+  version: number;
+  value: string;
+  status: TranslationStatus;
+  changedBy: string | null;
+  changeNote: string | null;
+  createdAt: string;
 };
 
 export type TranslationRow = {

@@ -32,8 +32,8 @@ Enforce `.claude/rules/nestjs-auth.md` and Rule 5 of
 | A1  | `@Public()` outside the allowed three routes  | `@Public()` on anything but `POST /auth/login`, `POST /auth/refresh`, `GET /health` |
 | A2  | Guard order wrong or incomplete               | `JwtAuthGuard` not registered before `RolesGuard` in `app.module.ts`, or either missing |
 | A3  | Redundant local guard                         | `@UseGuards(JwtAuthGuard)` on a controller or handler — it is already global   |
-| A4  | Mutating endpoint with no role decision       | `@Post`/`@Put`/`@Patch`/`@Delete` handler with no `@Roles()` and no `// no-role:` justification comment |
-| A5  | Raw `request.user` access                     | `@Req()` / `@Request()` used to read `.user` instead of `@CurrentUser()`        |
+| A4  | Mutating endpoint with no role decision       | `@Post`/`@Put`/`@Patch`/`@Delete` handler with no `@Roles()`, no `@ServiceCredential()`, and no `// no-role:` justification comment |
+| A5  | Raw `request.user` / `request.apiKey` access  | `@Req()` / `@Request()` used to read `.user` or `.apiKey` instead of `@CurrentUser()` / `@CurrentApiKey()` |
 | A6  | Role check inside a service                   | `user.role !== ` or `role === 'admin'` in a `*.service.ts`                      |
 | A7  | Entity returned to the client                 | Handler return type or returned expression is a repository result with no field mapping |
 | A8  | Auth endpoint not rate-limited                | `/auth/login` or `/auth/refresh` handler with no `@Throttle()`                  |
@@ -42,6 +42,23 @@ Enforce `.claude/rules/nestjs-auth.md` and Rule 5 of
 A4 is a *decision* check, not a correctness check. An endpoint that genuinely
 needs no role restriction is fine — it just has to say so, so that the next
 reader knows it was considered rather than forgotten.
+
+### `@ServiceCredential()` — the fourth marker
+
+A route carrying it is **authenticated**, by an API key rather than by a user
+session: `JwtAuthGuard` reads the marker and delegates to `ApiKeyGuard`. Do not
+report it as A1. It is how the runtime read endpoints authenticate, and the
+whole point of it is that `@Public()` stays capped at three routes.
+
+Three things to check on such a route instead:
+
+| ID   | Violation                                  | How to detect                                                        |
+| ---- | ------------------------------------------ | -------------------------------------------------------------------- |
+| A10  | `@ServiceCredential()` on a CMS write      | the marker on anything but a runtime read (`@Version('1')` controllers) — a key lives in a client bundle, so this makes it an editor account |
+| A11  | `@Roles()` alongside `@ServiceCredential()` | both on one handler or its class: there is no `request.user` to read a role from, so the `@Roles()` is dead and misleading |
+| A12  | Key scope never checked                    | a `@ServiceCredential()` handler taking an `:appSlug`/`:appId` with no `assertServesApp` on the path — one app's key reads another app's content |
+
+Rank A10 with the Critical group and A11/A12 with High.
 
 ---
 
@@ -62,14 +79,16 @@ reader knows it was considered rather than forgotten.
 - ...
 
 ## Endpoint coverage table
-| Method | Path | Public | Roles | Rate-limited |
-| ------ | ---- | ------ | ----- | ------------ |
-| POST   | /auth/login | yes | — | yes |
-| GET    | /apps       | no  | none declared | no |
+| Method | Path | Public | Auth | Roles | Rate-limited |
+| ------ | ---- | ------ | ---- | ----- | ------------ |
+| POST   | /auth/login | yes | — | — | yes |
+| GET    | /apps       | no  | jwt | none declared | no |
+| GET    | /v1/apps/:appSlug/locales/:localeCode | no | api-key | n/a | no |
 
 ## Summary
 - Endpoints audited: N
 - Unauthenticated endpoints: N (expected: 3)
+- Service-credential endpoints: N
 - Mutating endpoints with no role decision: N
 ```
 

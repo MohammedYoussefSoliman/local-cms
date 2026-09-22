@@ -49,6 +49,38 @@ The runtime translation endpoints are **not** an exception. They serve
 published content to client apps, but they still authenticate — with a
 service credential, not an editor session.
 
+### `@ServiceCredential()` is the fourth marker, and it is not `@Public()`
+
+A route that carries it authenticates with an API key instead of a user
+session. `JwtAuthGuard` reads the marker and delegates to `ApiKeyGuard`, which
+SHA-256s the `X-API-Key` header, looks up a non-revoked `api_keys` row, and
+attaches `request.apiKey`. Guards stay global and `@Public()` stays at three.
+
+```ts
+// ✅ — the runtime bundle: authenticated, by a client application
+@ServiceCredential()
+@Version('1')
+@Get('apps/:appSlug/locales/:localeCode')
+bundle(@CurrentApiKey() key: ApiKeyContext, @Param('appSlug') slug: string) { ... }
+
+// ❌ — the same endpoint, unauthenticated
+@Public()
+@Get('apps/:appSlug/locales/:localeCode')
+```
+
+Three things follow from it, and all three are review points:
+
+- **`@Roles()` on such a route is meaningless.** There is no `request.user` to
+  read a role from. The authorization question is *which app* the key was
+  issued for, answered by `ApiKeysService.assertServesApp` → 403.
+  It fails closed rather than open — `RolesGuard` rejects a request with no
+  `user` — but it presents as a blanket 403 on a route that looks correctly
+  decorated, which is a bad afternoon to debug. Catch it at review.
+- **Read the credential with `@CurrentApiKey()`**, never `request.apiKey`, for
+  the same reason Rule 5 of the module-structure rules bans raw `request.user`.
+- **It belongs on runtime read endpoints only.** A CMS write reachable by a
+  key that lives in a client bundle is the key becoming an editor account.
+
 ---
 
 ## Rule 3 — 401 and 403 mean different things

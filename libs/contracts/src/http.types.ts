@@ -37,6 +37,14 @@ export type HTTPErrorResponse = {
   message: string;
   error: string;
   fieldErrors?: Record<string, string[]>;
+  /**
+   * Machine-readable context for errors a message cannot carry. The case that
+   * needs it is the 409 a stale `expectedVersion` produces: invariant Rule 7
+   * requires the *current* value to come back with the rejection, so the
+   * dashboard can show a diff rather than a dead end. Typed per case in
+   * `@cms/contracts` — see `TranslationConflictData`.
+   */
+  details?: Record<string, unknown>;
   path: string;
   timestamp: string;
 };

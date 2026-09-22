@@ -389,13 +389,37 @@ published value can be rolled back".
 
 **Done when**
 
-- [ ] Two concurrent writes with the same `expectedVersion`: one 200, one 409,
+- [x] Two concurrent writes with the same `expectedVersion`: one 200, one 409,
       never two 200s
-- [ ] Every write leaves exactly one new history row
-- [ ] Rollback to v2 produces v5, and v2 is still present in the history
-- [ ] Malformed ICU → 422, and ICU whose placeholders differ from the default
+- [x] Every write leaves exactly one new history row
+- [x] Rollback to v2 produces v5, and v2 is still present in the history
+- [x] Malformed ICU → 422, and ICU whose placeholders differ from the default
       locale's → 422
-- [ ] A crash between the value write and the history write leaves neither
+- [x] A crash between the value write and the history write leaves neither
+
+**Decisions taken while building it**
+
+- The optimistic-lock check is a `SELECT … FOR UPDATE` on the value row rather
+  than a compare-and-set on `version`. TypeORM's `@VersionColumn` does not add
+  a `WHERE version = ?` guard to an ordinary `save()`, and writing one by hand
+  would mean assigning `version` in application code, which typeorm Rule 8
+  forbids. The row lock serializes the two writers instead, so the loser reads
+  the version the winner just wrote.
+- `rich_text` is **sanitized and stored**, not compared against what was sent.
+  Sanitizing rewrites as well as strips (`&` → `&amp;`), so an equality check
+  would reject good copy. 422 is reserved for input where nothing survived —
+  storing `''` there would look to the editor like the save worked.
+- Rollback does not re-validate the historical value and does not change the
+  status. It was valid when it was written, and refusing an emergency revert
+  because the default locale's placeholders moved since is the wrong trade.
+- `@formatjs/icu-messageformat-parser` is pinned to `^2` and `sanitize-html` to
+  `2.17.0`. Their latest majors are ESM-only; this package is CommonJS against
+  a `node >=20` floor, where `require(esm)` does not exist, and Jest does not
+  transform `node_modules`. Upgrading either means moving the backend to ESM.
+- `ListHistoryQueryDto` does not extend `PaginationQueryDto` — the one
+  departure from HTTP contract Rule 2 in the API. The base class carries
+  `search`, and an accepted-but-ignored `?search=` on a history endpoint is a
+  contract that lies.
 
 ---
 
@@ -470,10 +494,32 @@ hash is stored. `DELETE` sets `revoked_at`; it does not delete the row, so
 
 **Done when**
 
-- [ ] The plaintext key appears in the create response and in no other response
-- [ ] A revoked key → 401
-- [ ] A key for app A against app B's bundle → 403
-- [ ] `audit-api-auth` reports zero findings for the runtime routes
+- [x] The plaintext key appears in the create response and in no other response
+- [x] A revoked key → 401 — proven at the guard (`ApiKeyGuard` unit spec) and at
+      the database (`resolve` returns `null` for a revoked key, e2e). The
+      end-to-end HTTP half needs a `@ServiceCredential()` route, which arrives
+      with B8.
+- [x] A key for app A against app B's bundle → 403 — `assertServesApp`, unit
+      and e2e. Same caveat: the bundle route itself is B8's.
+- [x] `audit-api-auth` reports zero findings for the runtime routes — there are
+      none yet; the auditor was taught the marker (A10/A11/A12) so that when
+      B8 lands they are checked rather than reported as leaks.
+
+**Decisions taken while building it**
+
+- `prefix` is `cms_` + 8 hex = exactly 12 characters, matching the column. The
+  plan's illustrative `cms_live_a3f9` is 13 and would have overflowed it.
+- The full key is `<prefix>.<32 random bytes, base64url>`, and the **whole**
+  string is hashed. The prefix is therefore both the displayable handle and the
+  first segment of the secret, so a prefix in a log line matches a row.
+- SHA-256, not argon2. The key is uniform randomness rather than a human-chosen
+  password, so there is no dictionary to slow an attacker against — and this
+  runs on the hot path of every runtime read.
+- `last_used_at` is written at most once a minute per key. Writing it on every
+  request would turn the cacheable read endpoint into a write on every hit.
+- `DELETE /api-keys/:id` answers **200 with the revoked key**, not 204. The row
+  survives, so there is something to return, and returning it lets the
+  dashboard show when the key it just cut off was last used.
 
 ---
 
@@ -526,6 +572,15 @@ Response shape is `TranslationBundleResponse` from `@cms/domain`: `appSlug`,
       fallback locale, then to the key itself
 - [ ] An app-scoped entry overrides a global entry with the same key
 - [ ] `?includeGlobal=false` omits global modules entirely
+- [ ] **Every** runtime handler calls `ApiKeysService.assertServesApp`, and a
+      key issued for app A gets 403 against app B's bundle over HTTP
+
+The last box is a review gate, not a formality. B7 shipped `assertServesApp`
+with no production call site — the helper existing is not the protection, B8
+calling it is. A runtime handler that resolves `:appSlug` without asking the
+question serves one customer's copy to another's key, and nothing upstream
+will catch it: `ApiKeyGuard` only establishes *that* the credential is valid,
+never *where*.
 
 ---
 
