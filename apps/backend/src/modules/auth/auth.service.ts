@@ -93,9 +93,15 @@ export class AuthService {
     return tokens;
   }
 
-  async logout(refreshToken: string): Promise<void> {
+  /**
+   * Scoped to `userId` deliberately. Matching on the token hash alone would let
+   * any authenticated caller revoke a session belonging to someone else merely
+   * by presenting that person's refresh token — the access token says who is
+   * asking, so it decides whose sessions are in reach.
+   */
+  async logout(userId: string, refreshToken: string): Promise<void> {
     await this.sessions.update(
-      { tokenHash: this.hashToken(refreshToken), revokedAt: IsNull() },
+      { userId, tokenHash: this.hashToken(refreshToken), revokedAt: IsNull() },
       { revokedAt: new Date() },
     );
   }

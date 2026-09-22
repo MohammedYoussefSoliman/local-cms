@@ -11,6 +11,7 @@ import { ResponseInterceptor } from './common/interceptors/response.interceptor'
 import { appConfig, databaseConfig, jwtConfig } from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { typeOrmConfig } from './config/typeorm.config';
+import { AppsModule } from './modules/apps/apps.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { LocalesModule } from './modules/locales/locales.module';
@@ -31,6 +32,7 @@ import { UsersModule } from './modules/users/users.module';
     }),
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
 
+    AppsModule,
     AuthModule,
     HealthModule,
     LocalesModule,

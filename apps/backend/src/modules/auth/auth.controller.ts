@@ -76,10 +76,18 @@ export class AuthController {
     return this.auth.refresh(dto.refreshToken, request.headers['user-agent']);
   }
 
+  /**
+   * no-role: every authenticated user may end their own session, and an editor
+   * has exactly as much right to do it as an admin. The scope check is the
+   * `sub` claim below, not a role.
+   */
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(@Body() dto: RefreshDto): Promise<void> {
-    await this.auth.logout(dto.refreshToken);
+  async logout(
+    @Body() dto: RefreshDto,
+    @CurrentUser('sub') userId: string,
+  ): Promise<void> {
+    await this.auth.logout(userId, dto.refreshToken);
   }
 
   @Get('me')

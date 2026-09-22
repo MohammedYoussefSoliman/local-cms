@@ -242,11 +242,11 @@ Entity is `LocalizationApp` (named so it never reads as the Nest application).
 
 **Done when**
 
-- [ ] Creating an app with a bad `defaultLocaleCode` creates **no** app row
+- [x] Creating an app with a bad `defaultLocaleCode` creates **no** app row
       (transaction rolls back)
-- [ ] Two defaults for one app → 409 from the partial unique index
-- [ ] Disabling the default locale → 422
-- [ ] `PATCH` with a `slug` in the body → 400
+- [x] Two defaults for one app → 409 from the partial unique index
+- [x] Disabling the default locale → 422
+- [x] `PATCH` with a `slug` in the body → 400
 
 ---
 

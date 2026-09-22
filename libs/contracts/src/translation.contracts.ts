@@ -1,12 +1,5 @@
 import type { ContentType, ModuleScope, TranslationStatus } from '@cms/domain';
 
-export type CreateAppPayload = {
-  name: string;
-  slug: string;
-  description?: string;
-  defaultLocaleCode: string;
-};
-
 export type CreateModulePayload = {
   name: string;
   slug: string;
