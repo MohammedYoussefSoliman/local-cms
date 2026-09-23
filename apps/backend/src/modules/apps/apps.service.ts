@@ -117,6 +117,17 @@ export class AppsService {
    * and needs the same 404 rather than an empty locale list for an app that
    * does not exist.
    */
+  /**
+   * The runtime API addresses an app by its **slug**, because that is what a
+   * client application has compiled into its bundle (invariant Rule 8). An id
+   * would mean every client shipping a UUID it can never change.
+   */
+  async findEntityBySlugOrFail(slug: string): Promise<LocalizationApp> {
+    const app = await this.apps.findOne({ where: { slug } });
+    if (!app) throw new NotFoundException(`App "${slug}" does not exist.`);
+    return app;
+  }
+
   async findEntityOrFail(id: string): Promise<LocalizationApp> {
     const app = await this.apps.findOne({
       where: { id },

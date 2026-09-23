@@ -17,6 +17,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { EntriesModule } from './modules/entries/entries.module';
 import { HealthModule } from './modules/health/health.module';
 import { LocalesModule } from './modules/locales/locales.module';
+import { RuntimeModule } from './modules/runtime/runtime.module';
 import { TranslationModulesModule } from './modules/translation-modules/translation-modules.module';
 import { TranslationsModule } from './modules/translations/translations.module';
 import { UsersModule } from './modules/users/users.module';
@@ -42,6 +43,7 @@ import { UsersModule } from './modules/users/users.module';
     EntriesModule,
     HealthModule,
     LocalesModule,
+    RuntimeModule,
     TranslationModulesModule,
     TranslationsModule,
     UsersModule,

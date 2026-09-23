@@ -3,9 +3,12 @@
   "rootDir": ".",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
-  "transform": { "^.+\\.(t|j)s$": "ts-jest" },
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
   "moduleNameMapper": {
     "^@/(.*)$": "<rootDir>/../src/$1",
-    "^@cms/(.*)$": "<rootDir>/../../../libs/$1/src"
+    "^@cms/([^/]+)$": "<rootDir>/../../../libs/$1/src",
+    "^@cms/([^/]+)/(.*)$": "<rootDir>/../../../libs/$1/$2"
   }
 }

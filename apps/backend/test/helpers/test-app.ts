@@ -13,8 +13,12 @@ import { configureApp } from '../../src/app.setup';
 
 import type { INestApplication } from '@nestjs/common';
 
-/** Long enough to pass any future password policy; meaningless by design. */
-const TEST_PASSWORD = 'e2e-password-not-a-secret';
+/**
+ * Long enough to pass any future password policy; meaningless by design.
+ * Exported so a spec can assert what a credential change did without signing in
+ * again — `POST /auth/login` is throttled at 5/minute per app instance.
+ */
+export const TEST_PASSWORD = 'e2e-password-not-a-secret';
 
 /**
  * Boots the real application through `configureApp`, so a spec exercises the

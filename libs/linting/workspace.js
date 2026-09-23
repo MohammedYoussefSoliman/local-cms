@@ -33,6 +33,7 @@ const NODE_PATHS = [
   'libs/contracts/**/*.ts',
   'libs/database/**/*.ts',
   'libs/domain/**/*.ts',
+  'libs/importer/**/*.ts',
 ];
 
 const REACT_PATHS = ['apps/dashboard/**/*.{ts,tsx}', 'libs/ui/**/*.{ts,tsx}'];

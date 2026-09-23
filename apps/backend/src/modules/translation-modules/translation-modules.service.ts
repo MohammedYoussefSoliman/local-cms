@@ -105,6 +105,27 @@ export class TranslationModulesService {
     return record;
   }
 
+  /**
+   * Every module an app sees under one slug: its own, the global one, or both.
+   *
+   * Two rows is the normal case, not an error — `uq_modules_app_slug` and
+   * `uq_modules_global_slug` are separate partial indexes precisely so an app
+   * can have a `checkout` namespace alongside a global one. Which of the two
+   * wins for a given key is invariant Rule 5's business, and the runtime
+   * service is where that is decided.
+   */
+  findForAppBySlug(
+    appId: string,
+    slug: string,
+  ): Promise<TranslationModule[]> {
+    return this.modules.find({
+      where: [
+        { appId, slug },
+        { scope: 'global', slug },
+      ],
+    });
+  }
+
   private async save(
     values: Partial<TranslationModule>,
   ): Promise<TranslationModuleResponseData> {

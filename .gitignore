@@ -10,3 +10,6 @@
 .DS_Store
 .idea/*
 .local.docs/*
+
+# Import reports are run artefacts naming a source revision, not source.
+**/import-reports

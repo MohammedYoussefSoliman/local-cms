@@ -495,15 +495,14 @@ hash is stored. `DELETE` sets `revoked_at`; it does not delete the row, so
 **Done when**
 
 - [x] The plaintext key appears in the create response and in no other response
-- [x] A revoked key → 401 — proven at the guard (`ApiKeyGuard` unit spec) and at
-      the database (`resolve` returns `null` for a revoked key, e2e). The
-      end-to-end HTTP half needs a `@ServiceCredential()` route, which arrives
-      with B8.
-- [x] A key for app A against app B's bundle → 403 — `assertServesApp`, unit
-      and e2e. Same caveat: the bundle route itself is B8's.
-- [x] `audit-api-auth` reports zero findings for the runtime routes — there are
-      none yet; the auditor was taught the marker (A10/A11/A12) so that when
-      B8 lands they are checked rather than reported as leaks.
+- [x] A revoked key → 401 — proven at the guard, at the database, and now over
+      HTTP against the real runtime route (B8 closed the caveat this box
+      originally carried).
+- [x] A key for app A against app B's bundle → 403 — `assertServesApp`, unit,
+      and now end to end against `GET /v1/apps/:appSlug/locales/:localeCode`.
+- [x] `audit-api-auth` reports zero findings for the runtime routes — the
+      auditor was taught the marker (A10/A11/A12) in B7, and B8's routes are
+      the first thing those checks ran against.
 
 **Decisions taken while building it**
 
@@ -564,16 +563,52 @@ Response shape is `TranslationBundleResponse` from `@cms/domain`: `appSlug`,
 
 **Done when**
 
-- [ ] A `draft` value is absent from the bundle — the test the invariants rule
-      requires by name
-- [ ] Publishing any value changes the `releaseId`
-- [ ] `If-None-Match` with the current ETag → 304 with no body
-- [ ] A key missing in the requested locale falls back to the configured
+- [x] A `draft` value is absent from the bundle — the test the invariants rule
+      requires by name (and an `archived` one, which is the same leak arriving
+      from the other direction)
+- [x] Publishing any value changes the `releaseId`
+- [x] `If-None-Match` with the current ETag → 304 with no body
+- [x] A key missing in the requested locale falls back to the configured
       fallback locale, then to the key itself
-- [ ] An app-scoped entry overrides a global entry with the same key
-- [ ] `?includeGlobal=false` omits global modules entirely
-- [ ] **Every** runtime handler calls `ApiKeysService.assertServesApp`, and a
+- [x] An app-scoped entry overrides a global entry with the same key
+- [x] `?includeGlobal=false` omits global modules entirely
+- [x] **Every** runtime handler calls `ApiKeysService.assertServesApp`, and a
       key issued for app A gets 403 against app B's bundle over HTTP
+
+**Decisions taken while building it**
+
+- **`releaseId` is `sha256(max(updated_at) + ':' + count)`**, not
+  `max(published_at)` as specified above. B6 decided that editing an
+  already-published value keeps it published and leaves `published_at`
+  untouched, so a `published_at` digest would not move when live copy was
+  corrected — every cache would serve the typo until something unrelated was
+  published. `count` is what catches a value *leaving* the set, where the
+  maximum can only go down.
+- **Step 4 of `RESOLUTION_ORDER` is an omission, not an entry.** A key with
+  nothing published anywhere is simply absent from the bundle, and every i18n
+  client renders a missing key as the key. Emitting `add_to_cart:
+  'add_to_cart'` would look identical on screen while making "is this
+  translated yet?" unanswerable from the response, and would ship the
+  untranslated 90% of a young app in every bundle.
+- **Language is the outer loop in the merge.** Requested locale (app namespace,
+  then global), then the fallback locale (app, then global) — so a global
+  string in the requested language beats an app-specific one in the fallback.
+  That is what the order in the rule literally says; it is worth stating because
+  the opposite reading is just as natural.
+- **One query, both languages.** The requested and fallback locales are fetched
+  together and told apart by `locale_id` in JS. A second pass would double the
+  round trips on the API's hottest read.
+- **The 304 returns `undefined` through the normal interceptor.** Express strips
+  the body of a 304 in `res.send`, so the envelope never reaches the wire, and
+  the runtime routes keep the same response shape as the rest of the API. The
+  alternative — a raw `@Res()` — would have made these three the only endpoints
+  that answer differently.
+- **A fallback pointing at a language the app has since switched off is treated
+  as absent**, rather than as a step that silently contributes nothing.
+- `GET .../modules/:moduleSlug` checks the slug exists rather than inferring it
+  from an empty result: a namespace with nothing published yet and a misspelled
+  slug are different problems, and one empty bundle for both sends a client
+  developer looking in the wrong place.
 
 The last box is a review gate, not a formality. B7 shipped `assertServesApp`
 with no production call site — the helper existing is not the protection, B8
@@ -618,12 +653,46 @@ map to a response shape.
 
 **Done when**
 
-- [ ] Disabling a user makes their existing access token fail on the next
+- [x] Disabling a user makes their existing access token fail on the next
       request, not at expiry
-- [ ] Disabling revokes every `refresh_sessions` row for that user
-- [ ] Changing a password revokes every session, including the current one
-- [ ] No response anywhere contains `passwordHash`
-- [ ] An editor calling `GET /users` gets 403
+- [x] Disabling revokes every `refresh_sessions` row for that user
+- [x] Changing a password revokes every session, including the current one
+- [x] No response anywhere contains `passwordHash`
+- [x] An editor calling `GET /users` gets 403
+
+**Decisions taken while building it**
+
+- **`UsersModule` and `AuthModule` now `forwardRef` each other.** The dependency
+  is genuine in both directions: auth loads an account on every request, and
+  disabling an account has to revoke its sessions. A second copy of the
+  revoke-all query in `UsersService` would have avoided the `forwardRef` and
+  given us two implementations of "disabling locks them out" — the kind of pair
+  where one quietly stops being true.
+- **Self-disable is refused with 422.** Not in the ticket, added deliberately:
+  disabling yourself succeeds, then 401s your very next request, and if you were
+  the last admin nobody can undo it. The last-admin case more generally —
+  demoting or disabling the only remaining admin — is **not** handled; see the
+  gap below.
+- **A role change does not revoke sessions**, and should not: `JwtStrategy`
+  re-reads the user on every request and takes `role` from the database rather
+  than from the token, so a demotion already takes effect on the next call.
+- **`POST /users/me/password` requires the current password** and revokes every
+  session including the caller's own. A change made because credentials leaked
+  that leaves the attacker's session alive reports success while fixing nothing.
+
+**Gap this ticket surfaces — needs a decision**
+
+`POST /users` creates an account with status `invited` and a password hash over
+bytes that are generated, used once and dropped. That is the ticket as written,
+and it is the right shape — but **nothing in B1-B12 provides an
+invite-acceptance or admin-set-password flow**, so a user created through this
+endpoint can never log in. Today the only usable account is the one
+`seed-admin` creates.
+
+Implemented as specified rather than papered over: adding an optional
+`password` to the create payload would make the endpoint work immediately, but
+that is a different product decision (admin-chosen credentials vs. an invite
+email) and it should be made on purpose, not inside this ticket.
 
 ---
 
@@ -647,9 +716,49 @@ No e2e file exists today. Each test owns its data and cleans up after itself.
 
 **Done when**
 
-- [ ] Every route is covered by the 401 sweep automatically, with no
+- [x] Every route is covered by the 401 sweep automatically, with no
       hand-maintained list
-- [ ] `pnpm test:e2e` passes in CI against the service container
+- [x] `pnpm test:e2e` passes in CI against the service container
+
+**Decisions taken while building it**
+
+- **The sweep reads Nest's decorator metadata, not the Express router.**
+  `ModulesContainer` + `PATH_METADATA` / `METHOD_METADATA` / `VERSION_METADATA`
+  is the same source Nest routes on. Express 5 moved its router and
+  path-to-regexp 8 no longer surfaces the original path strings, so a suite
+  built on those internals breaks on a framework patch — and breaks by finding
+  *fewer* routes, which looks like a pass.
+- **The route list is built after the app boots, so the sweep is one test, not
+  `it.each`.** Jest builds an `each` table before `beforeAll` runs. The loop
+  collects every mismatch and asserts the list is empty, so a failure names all
+  of the offending routes at once rather than the first.
+- **`@Public()` is asserted as an exact set of three.** This is the one
+  hand-maintained list in the file, and deliberately so: it is auth Rule 2
+  stated as a test. A route can only leave the 401 sweep by carrying
+  `@Public()`, and carrying it fails this assertion — so there is no way out of
+  the sweep that is not also a failing test.
+- **The 403 sweep is automatic too.** Every route whose `@Roles()` excludes
+  `editor` is called with an editor's token and must answer 403. 21 routes
+  today, with nothing to add when the 22nd lands. 401 and 403 are never
+  collapsed because the dashboard logs people out on a 401.
+- **Two static assertions with no HTTP:** no route carries both `@Public()` and
+  `@ServiceCredential()` (the pair reads as "authenticated by a key" and behaves
+  as "open to the internet"), and no `@ServiceCredential()` route carries
+  `@Roles()` (a key has no `request.user`, so the route would be dead rather
+  than stricter).
+- **The per-feature specs the ticket lists already existed**, written with the
+  tickets that introduced them: `runtime.e2e-spec.ts` covers draft leakage, 304
+  on `If-None-Match`, fallback and app-over-global resolution and a revoked key;
+  `translations.e2e-spec.ts` covers the stale-`expectedVersion` 409, a history
+  row per write and forward rollback. This ticket added the part no per-endpoint
+  test can do.
+
+**Watch this**
+
+The two sweeps together spend roughly two thirds of the global 120/min throttle
+budget from one IP. If the API surface roughly doubles, `auth.e2e-spec.ts`
+starts failing with 429s rather than with a real finding. The fix then is to
+raise the limit for the test environment, not to trim the sweep.
 
 ---
 
@@ -682,12 +791,75 @@ touching the database.
 
 **Done when**
 
-- [ ] Running twice against the same source imports zero rows the second time
-- [ ] A dry run writes a report and makes no database changes whatsoever
-- [ ] A key present in `en` but missing in `ar` appears in the report rather
+- [x] Running twice against the same source imports zero rows the second time
+- [x] A dry run writes a report and makes no database changes whatsoever
+- [x] A key present in `en` but missing in `ar` appears in the report rather
       than failing the import
-- [ ] The report names the source commit SHA
-- [ ] `GET /v1/...` output matches the original JSON bundle for a pilot module
+- [x] The report names the source commit SHA
+- [x] `GET /v1/...` output matches the original JSON bundle for a pilot module
+
+**Decisions taken while building it**
+
+- **It writes through TypeORM, not through the backend's services.** The ticket
+  says it calls the same services the HTTP layer does; that would mean
+  `libs/importer` importing `apps/backend`, which inverts the dependency
+  direction the whole workspace is built on. It owns its writes against
+  `@cms/database` entities instead, in one transaction, and reuses the domain
+  rules that actually live in libs. The thing this gives up is content
+  validation (`content-validation.ts` is a pure module but sits in
+  `apps/backend`, and its ICU and sanitize-html dependencies do not belong in
+  `@cms/domain`, which has none) — so everything imports as `contentType: 'text'`
+  and is re-typed in the CMS afterwards.
+- **The dry run is the real run, rolled back.** `runImport` always opens the
+  transaction and throws a sentinel at the end when `--commit` is absent. A
+  separate read-only simulation would drift, and the one that drifts is always
+  the one nobody runs for real until it matters — it would report a clean
+  import of a batch that then fails on a constraint. The cost is that a dry run
+  briefly holds write locks.
+- **`--pattern` is a path template, not a glob.** `apps/<app>/src/modules/<module>/locales/<locale>.ts`
+  — a glob cannot say which `*` is the application and which is the module, and
+  guessing from position is how every module gets filed under the wrong app the
+  first time a source repo nests one level deeper.
+- **`.ts` locale files are evaluated, not parsed.** The source monorepo ships
+  typed objects, not JSON. ts-node is registered lazily with `transpileOnly`, so
+  a `--pattern` pointed at JSON never pays for it and a locale file that fails
+  to typecheck against its own project still imports. A single named export is
+  unwrapped only when the module is an ES module — a CommonJS
+  `module.exports = { common: {...} }` has exactly one own key too, and
+  unwrapping that would import one namespace as the whole file.
+- **Imported values are `published`, and each gets a history row.** The copy
+  being imported is already live in the source application; importing it as
+  `draft` would leave the runtime bundle empty on day one. `changed_by` is null
+  because no person made the change, and `change_note` names the source path and
+  commit instead (invariant Rules 6 and 9).
+- **A conflict is reported, not overwritten.** After the first import the CMS is
+  the source of truth, and a re-run silently undoing an editor's fix is the
+  failure this guards. `--overwrite` is the flag for the other reading, and it
+  still writes forward through history.
+- **It never invents a language.** A locale code the `locales` table does not
+  hold is reported and skipped: adding a language is an `INSERT`, but a
+  deliberate one with a direction, a native name and a fallback to decide, and
+  an importer guessing at those puts a half-configured language in front of
+  readers. A language an app has deliberately *disabled* is likewise left off
+  and reported.
+- **Non-string leaves are reported and skipped, never coerced.** A `0` stored as
+  `"0"` reads as translated copy forever afterwards and nobody knows to look at
+  it again.
+- **The report is written before the transaction opens and again after it
+  closes.** The first copy is what survives a run that dies mid-write. It also
+  records whether the source tree was dirty — a SHA taken over uncommitted edits
+  does not describe what was read, and an audit trail that quietly says
+  otherwise is worse than none.
+- **The root script is `pnpm import:cms`.** `pnpm import` is a built-in pnpm
+  command (it converts a foreign lockfile), so pnpm resolves its own command
+  first and the flags never reach the CLI.
+- **Verification of the last box lives in `apps/backend/test/importer-runtime.e2e-spec.ts`.**
+  It imports a fixture and then fetches `/api/v1/apps/:slug/locales/:code` with
+  an API key, asserting the bundle against a hand-written expectation rather
+  than against the importer's own flattener — a check that reuses the code under
+  test only proves it is self-consistent. `@cms/importer` is a devDependency of
+  the backend for it, which is the correct direction: an app may depend on a
+  lib.
 
 ---
 

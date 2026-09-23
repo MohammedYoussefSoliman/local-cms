@@ -43,6 +43,7 @@
   },
   "devDependencies": {
     "@cms/configs": "workspace:*",
+    "@cms/importer": "workspace:*",
     "@cms/linting": "workspace:*",
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",

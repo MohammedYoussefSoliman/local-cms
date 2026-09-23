@@ -26,6 +26,15 @@ export function configureApp(
    * carries `@Version('1')` and lands at `/api/v1/apps/...` (arch doc §9).
    * Without an explicit default, `enableVersioning()` demands a version on
    * every route and the whole CMS surface 404s.
+   *
+   * `defaultVersion` is load-bearing beyond that, and changing it is not the
+   * small config edit it looks like. `RuntimeController` is
+   * `apps/:appSlug/locales` at version 1 and `AppLocalesController` is
+   * `apps/:appId/locales` version-neutral — the same path shape, kept apart
+   * only by the version segment. Give the CMS surface a default version and the
+   * two contend for one URL, with a service-credential route and a JWT route on
+   * either side of it. Version the runtime API forward (`@Version('2')`)
+   * instead; never by moving everything else.
    */
   app.enableVersioning({
     type: VersioningType.URI,
