@@ -78,10 +78,12 @@ as a surprise.
 
 ### Migrations
 
-**One new migration in this entire plan:** `AddApiKeys` (B7). The Phase 1
-schema already covers everything else. If a ticket seems to need a schema
-change, re-read `.claude/rules/cms-domain-invariants.md` first — particularly
-Rule 1, since "support French" is an `INSERT`, not a migration.
+**Two new migrations in this entire plan:** `AddApiKeys` (B7) and
+`AddUserInvitations` (B13). The Phase 1 schema already covers everything else.
+Both are hand-written, and for the same reason: each carries a partial index
+TypeORM cannot generate. If a ticket seems to need a schema change, re-read
+`.claude/rules/cms-domain-invariants.md` first — particularly Rule 1, since
+"support French" is an `INSERT`, not a migration.
 
 ---
 
@@ -91,13 +93,13 @@ Rule 1, since "support French" is an `INSERT`, not a migration.
 B1 ─┬─ B2 ── B3 ─┬─ B4 ── B5 ── B6 ─┬─ B8 ── B10
     │            │                  └─ B11
     │            └─ B7 ─────────────┘
-    └─ B9
+    └─ B9 ── B13
 
 B12 last
 ```
 
-B9 can be picked up any time after B1. Everything else is linear along the
-arrows.
+B9 can be picked up any time after B1, and B13 follows it. Everything else is
+linear along the arrows.
 
 ### New dependencies
 
@@ -242,11 +244,11 @@ Entity is `LocalizationApp` (named so it never reads as the Nest application).
 
 **Done when**
 
-- [ ] Creating an app with a bad `defaultLocaleCode` creates **no** app row
+- [x] Creating an app with a bad `defaultLocaleCode` creates **no** app row
       (transaction rolls back)
-- [ ] Two defaults for one app → 409 from the partial unique index
-- [ ] Disabling the default locale → 422
-- [ ] `PATCH` with a `slug` in the body → 400
+- [x] Two defaults for one app → 409 from the partial unique index
+- [x] Disabling the default locale → 422
+- [x] `PATCH` with a `slug` in the body → 400
 
 ---
 
@@ -281,10 +283,10 @@ is left to `ck_modules_scope_app_id` to reject as a 422.
 
 **Done when**
 
-- [ ] Two `products` modules in one app → 409
-- [ ] Two global `authentication` modules → 409 (this is the one a plain
+- [x] Two `products` modules in one app → 409
+- [x] Two global `authentication` modules → 409 (this is the one a plain
       `UNIQUE (app_id, slug)` would have allowed, because `NULL != NULL`)
-- [ ] A `products` module in app A and another in app B both succeed
+- [x] A `products` module in app A and another in app B both succeed
 
 ---
 
@@ -322,11 +324,11 @@ thought before shipping: an archived entry may be the better default.
 
 **Done when**
 
-- [ ] The list returns one row per entry with every locale's value keyed by
+- [x] The list returns one row per entry with every locale's value keyed by
       code, including locales with no value yet
-- [ ] `?missingLocale=ar` returns only entries with no `ar` value
-- [ ] A module with 500 entries × 4 locales is one query, not 500
-- [ ] Two entries with the same key in one module → 409
+- [x] `?missingLocale=ar` returns only entries with no `ar` value
+- [x] A module with 500 entries × 4 locales is one query, not 500
+- [x] Two entries with the same key in one module → 409
 
 ---
 
@@ -389,13 +391,37 @@ published value can be rolled back".
 
 **Done when**
 
-- [ ] Two concurrent writes with the same `expectedVersion`: one 200, one 409,
+- [x] Two concurrent writes with the same `expectedVersion`: one 200, one 409,
       never two 200s
-- [ ] Every write leaves exactly one new history row
-- [ ] Rollback to v2 produces v5, and v2 is still present in the history
-- [ ] Malformed ICU → 422, and ICU whose placeholders differ from the default
+- [x] Every write leaves exactly one new history row
+- [x] Rollback to v2 produces v5, and v2 is still present in the history
+- [x] Malformed ICU → 422, and ICU whose placeholders differ from the default
       locale's → 422
-- [ ] A crash between the value write and the history write leaves neither
+- [x] A crash between the value write and the history write leaves neither
+
+**Decisions taken while building it**
+
+- The optimistic-lock check is a `SELECT … FOR UPDATE` on the value row rather
+  than a compare-and-set on `version`. TypeORM's `@VersionColumn` does not add
+  a `WHERE version = ?` guard to an ordinary `save()`, and writing one by hand
+  would mean assigning `version` in application code, which typeorm Rule 8
+  forbids. The row lock serializes the two writers instead, so the loser reads
+  the version the winner just wrote.
+- `rich_text` is **sanitized and stored**, not compared against what was sent.
+  Sanitizing rewrites as well as strips (`&` → `&amp;`), so an equality check
+  would reject good copy. 422 is reserved for input where nothing survived —
+  storing `''` there would look to the editor like the save worked.
+- Rollback does not re-validate the historical value and does not change the
+  status. It was valid when it was written, and refusing an emergency revert
+  because the default locale's placeholders moved since is the wrong trade.
+- `@formatjs/icu-messageformat-parser` is pinned to `^2` and `sanitize-html` to
+  `2.17.0`. Their latest majors are ESM-only; this package is CommonJS against
+  a `node >=20` floor, where `require(esm)` does not exist, and Jest does not
+  transform `node_modules`. Upgrading either means moving the backend to ESM.
+- `ListHistoryQueryDto` does not extend `PaginationQueryDto` — the one
+  departure from HTTP contract Rule 2 in the API. The base class carries
+  `search`, and an accepted-but-ignored `?search=` on a history endpoint is a
+  contract that lies.
 
 ---
 
@@ -470,10 +496,31 @@ hash is stored. `DELETE` sets `revoked_at`; it does not delete the row, so
 
 **Done when**
 
-- [ ] The plaintext key appears in the create response and in no other response
-- [ ] A revoked key → 401
-- [ ] A key for app A against app B's bundle → 403
-- [ ] `audit-api-auth` reports zero findings for the runtime routes
+- [x] The plaintext key appears in the create response and in no other response
+- [x] A revoked key → 401 — proven at the guard, at the database, and now over
+      HTTP against the real runtime route (B8 closed the caveat this box
+      originally carried).
+- [x] A key for app A against app B's bundle → 403 — `assertServesApp`, unit,
+      and now end to end against `GET /v1/apps/:appSlug/locales/:localeCode`.
+- [x] `audit-api-auth` reports zero findings for the runtime routes — the
+      auditor was taught the marker (A10/A11/A12) in B7, and B8's routes are
+      the first thing those checks ran against.
+
+**Decisions taken while building it**
+
+- `prefix` is `cms_` + 8 hex = exactly 12 characters, matching the column. The
+  plan's illustrative `cms_live_a3f9` is 13 and would have overflowed it.
+- The full key is `<prefix>.<32 random bytes, base64url>`, and the **whole**
+  string is hashed. The prefix is therefore both the displayable handle and the
+  first segment of the secret, so a prefix in a log line matches a row.
+- SHA-256, not argon2. The key is uniform randomness rather than a human-chosen
+  password, so there is no dictionary to slow an attacker against — and this
+  runs on the hot path of every runtime read.
+- `last_used_at` is written at most once a minute per key. Writing it on every
+  request would turn the cacheable read endpoint into a write on every hit.
+- `DELETE /api-keys/:id` answers **200 with the revoked key**, not 204. The row
+  survives, so there is something to return, and returning it lets the
+  dashboard show when the key it just cut off was last used.
 
 ---
 
@@ -518,14 +565,59 @@ Response shape is `TranslationBundleResponse` from `@cms/domain`: `appSlug`,
 
 **Done when**
 
-- [ ] A `draft` value is absent from the bundle — the test the invariants rule
-      requires by name
-- [ ] Publishing any value changes the `releaseId`
-- [ ] `If-None-Match` with the current ETag → 304 with no body
-- [ ] A key missing in the requested locale falls back to the configured
+- [x] A `draft` value is absent from the bundle — the test the invariants rule
+      requires by name (and an `archived` one, which is the same leak arriving
+      from the other direction)
+- [x] Publishing any value changes the `releaseId`
+- [x] `If-None-Match` with the current ETag → 304 with no body
+- [x] A key missing in the requested locale falls back to the configured
       fallback locale, then to the key itself
-- [ ] An app-scoped entry overrides a global entry with the same key
-- [ ] `?includeGlobal=false` omits global modules entirely
+- [x] An app-scoped entry overrides a global entry with the same key
+- [x] `?includeGlobal=false` omits global modules entirely
+- [x] **Every** runtime handler calls `ApiKeysService.assertServesApp`, and a
+      key issued for app A gets 403 against app B's bundle over HTTP
+
+**Decisions taken while building it**
+
+- **`releaseId` is `sha256(max(updated_at) + ':' + count)`**, not
+  `max(published_at)` as specified above. B6 decided that editing an
+  already-published value keeps it published and leaves `published_at`
+  untouched, so a `published_at` digest would not move when live copy was
+  corrected — every cache would serve the typo until something unrelated was
+  published. `count` is what catches a value *leaving* the set, where the
+  maximum can only go down.
+- **Step 4 of `RESOLUTION_ORDER` is an omission, not an entry.** A key with
+  nothing published anywhere is simply absent from the bundle, and every i18n
+  client renders a missing key as the key. Emitting `add_to_cart:
+  'add_to_cart'` would look identical on screen while making "is this
+  translated yet?" unanswerable from the response, and would ship the
+  untranslated 90% of a young app in every bundle.
+- **Language is the outer loop in the merge.** Requested locale (app namespace,
+  then global), then the fallback locale (app, then global) — so a global
+  string in the requested language beats an app-specific one in the fallback.
+  That is what the order in the rule literally says; it is worth stating because
+  the opposite reading is just as natural.
+- **One query, both languages.** The requested and fallback locales are fetched
+  together and told apart by `locale_id` in JS. A second pass would double the
+  round trips on the API's hottest read.
+- **The 304 returns `undefined` through the normal interceptor.** Express strips
+  the body of a 304 in `res.send`, so the envelope never reaches the wire, and
+  the runtime routes keep the same response shape as the rest of the API. The
+  alternative — a raw `@Res()` — would have made these three the only endpoints
+  that answer differently.
+- **A fallback pointing at a language the app has since switched off is treated
+  as absent**, rather than as a step that silently contributes nothing.
+- `GET .../modules/:moduleSlug` checks the slug exists rather than inferring it
+  from an empty result: a namespace with nothing published yet and a misspelled
+  slug are different problems, and one empty bundle for both sends a client
+  developer looking in the wrong place.
+
+The last box is a review gate, not a formality. B7 shipped `assertServesApp`
+with no production call site — the helper existing is not the protection, B8
+calling it is. A runtime handler that resolves `:appSlug` without asking the
+question serves one customer's copy to another's key, and nothing upstream
+will catch it: `ApiKeyGuard` only establishes *that* the credential is valid,
+never *where*.
 
 ---
 
@@ -563,12 +655,52 @@ map to a response shape.
 
 **Done when**
 
-- [ ] Disabling a user makes their existing access token fail on the next
+- [x] Disabling a user makes their existing access token fail on the next
       request, not at expiry
-- [ ] Disabling revokes every `refresh_sessions` row for that user
-- [ ] Changing a password revokes every session, including the current one
-- [ ] No response anywhere contains `passwordHash`
-- [ ] An editor calling `GET /users` gets 403
+- [x] Disabling revokes every `refresh_sessions` row for that user
+- [x] Changing a password revokes every session, including the current one
+- [x] No response anywhere contains `passwordHash`
+- [x] An editor calling `GET /users` gets 403
+
+**Decisions taken while building it**
+
+- **`UsersModule` and `AuthModule` now `forwardRef` each other.** The dependency
+  is genuine in both directions: auth loads an account on every request, and
+  disabling an account has to revoke its sessions. A second copy of the
+  revoke-all query in `UsersService` would have avoided the `forwardRef` and
+  given us two implementations of "disabling locks them out" — the kind of pair
+  where one quietly stops being true.
+- **Self-disable is refused with 422.** Not in the ticket, added deliberately:
+  disabling yourself succeeds, then 401s your very next request, and if you were
+  the last admin nobody can undo it. The last-admin case more generally —
+  demoting or disabling the only remaining admin — is **not** handled; see the
+  gap below.
+- **A role change does not revoke sessions**, and should not: `JwtStrategy`
+  re-reads the user on every request and takes `role` from the database rather
+  than from the token, so a demotion already takes effect on the next call.
+- **`POST /users/me/password` requires the current password** and revokes every
+  session including the caller's own. A change made because credentials leaked
+  that leaves the attacker's session alive reports success while fixing nothing.
+
+**Gaps this ticket surfaced — both closed by B13**
+
+`POST /users` creates an account with status `invited` and a password hash over
+bytes that are generated, used once and dropped. That is the ticket as written,
+and it is the right shape — but **nothing in B1-B12 provided an
+invite-acceptance or admin-set-password flow**, so a user created through this
+endpoint could never log in, and the only usable account was the one
+`seed-admin` creates.
+
+Implemented as specified rather than papered over: adding an optional
+`password` to the create payload would have made the endpoint work immediately,
+but that is a different product decision (admin-chosen credentials vs. an
+invitation) and it should be made on purpose, not inside this ticket. It was
+made in B13.
+
+The second gap was the one this ticket's self-disable check only half covered:
+demoting or disabling the **last active admin** was still allowed, and there is
+no way back from it through an API where every recovery route is
+`@Roles('admin')`. Also B13.
 
 ---
 
@@ -592,9 +724,49 @@ No e2e file exists today. Each test owns its data and cleans up after itself.
 
 **Done when**
 
-- [ ] Every route is covered by the 401 sweep automatically, with no
+- [x] Every route is covered by the 401 sweep automatically, with no
       hand-maintained list
-- [ ] `pnpm test:e2e` passes in CI against the service container
+- [x] `pnpm test:e2e` passes in CI against the service container
+
+**Decisions taken while building it**
+
+- **The sweep reads Nest's decorator metadata, not the Express router.**
+  `ModulesContainer` + `PATH_METADATA` / `METHOD_METADATA` / `VERSION_METADATA`
+  is the same source Nest routes on. Express 5 moved its router and
+  path-to-regexp 8 no longer surfaces the original path strings, so a suite
+  built on those internals breaks on a framework patch — and breaks by finding
+  *fewer* routes, which looks like a pass.
+- **The route list is built after the app boots, so the sweep is one test, not
+  `it.each`.** Jest builds an `each` table before `beforeAll` runs. The loop
+  collects every mismatch and asserts the list is empty, so a failure names all
+  of the offending routes at once rather than the first.
+- **`@Public()` is asserted as an exact set of three.** This is the one
+  hand-maintained list in the file, and deliberately so: it is auth Rule 2
+  stated as a test. A route can only leave the 401 sweep by carrying
+  `@Public()`, and carrying it fails this assertion — so there is no way out of
+  the sweep that is not also a failing test.
+- **The 403 sweep is automatic too.** Every route whose `@Roles()` excludes
+  `editor` is called with an editor's token and must answer 403. 21 routes
+  today, with nothing to add when the 22nd lands. 401 and 403 are never
+  collapsed because the dashboard logs people out on a 401.
+- **Two static assertions with no HTTP:** no route carries both `@Public()` and
+  `@ServiceCredential()` (the pair reads as "authenticated by a key" and behaves
+  as "open to the internet"), and no `@ServiceCredential()` route carries
+  `@Roles()` (a key has no `request.user`, so the route would be dead rather
+  than stricter).
+- **The per-feature specs the ticket lists already existed**, written with the
+  tickets that introduced them: `runtime.e2e-spec.ts` covers draft leakage, 304
+  on `If-None-Match`, fallback and app-over-global resolution and a revoked key;
+  `translations.e2e-spec.ts` covers the stale-`expectedVersion` 409, a history
+  row per write and forward rollback. This ticket added the part no per-endpoint
+  test can do.
+
+**Watch this**
+
+The two sweeps together spend roughly two thirds of the global 120/min throttle
+budget from one IP. If the API surface roughly doubles, `auth.e2e-spec.ts`
+starts failing with 429s rather than with a real finding. The fix then is to
+raise the limit for the test environment, not to trim the sweep.
 
 ---
 
@@ -627,12 +799,75 @@ touching the database.
 
 **Done when**
 
-- [ ] Running twice against the same source imports zero rows the second time
-- [ ] A dry run writes a report and makes no database changes whatsoever
-- [ ] A key present in `en` but missing in `ar` appears in the report rather
+- [x] Running twice against the same source imports zero rows the second time
+- [x] A dry run writes a report and makes no database changes whatsoever
+- [x] A key present in `en` but missing in `ar` appears in the report rather
       than failing the import
-- [ ] The report names the source commit SHA
-- [ ] `GET /v1/...` output matches the original JSON bundle for a pilot module
+- [x] The report names the source commit SHA
+- [x] `GET /v1/...` output matches the original JSON bundle for a pilot module
+
+**Decisions taken while building it**
+
+- **It writes through TypeORM, not through the backend's services.** The ticket
+  says it calls the same services the HTTP layer does; that would mean
+  `libs/importer` importing `apps/backend`, which inverts the dependency
+  direction the whole workspace is built on. It owns its writes against
+  `@cms/database` entities instead, in one transaction, and reuses the domain
+  rules that actually live in libs. The thing this gives up is content
+  validation (`content-validation.ts` is a pure module but sits in
+  `apps/backend`, and its ICU and sanitize-html dependencies do not belong in
+  `@cms/domain`, which has none) — so everything imports as `contentType: 'text'`
+  and is re-typed in the CMS afterwards.
+- **The dry run is the real run, rolled back.** `runImport` always opens the
+  transaction and throws a sentinel at the end when `--commit` is absent. A
+  separate read-only simulation would drift, and the one that drifts is always
+  the one nobody runs for real until it matters — it would report a clean
+  import of a batch that then fails on a constraint. The cost is that a dry run
+  briefly holds write locks.
+- **`--pattern` is a path template, not a glob.** `apps/<app>/src/modules/<module>/locales/<locale>.ts`
+  — a glob cannot say which `*` is the application and which is the module, and
+  guessing from position is how every module gets filed under the wrong app the
+  first time a source repo nests one level deeper.
+- **`.ts` locale files are evaluated, not parsed.** The source monorepo ships
+  typed objects, not JSON. ts-node is registered lazily with `transpileOnly`, so
+  a `--pattern` pointed at JSON never pays for it and a locale file that fails
+  to typecheck against its own project still imports. A single named export is
+  unwrapped only when the module is an ES module — a CommonJS
+  `module.exports = { common: {...} }` has exactly one own key too, and
+  unwrapping that would import one namespace as the whole file.
+- **Imported values are `published`, and each gets a history row.** The copy
+  being imported is already live in the source application; importing it as
+  `draft` would leave the runtime bundle empty on day one. `changed_by` is null
+  because no person made the change, and `change_note` names the source path and
+  commit instead (invariant Rules 6 and 9).
+- **A conflict is reported, not overwritten.** After the first import the CMS is
+  the source of truth, and a re-run silently undoing an editor's fix is the
+  failure this guards. `--overwrite` is the flag for the other reading, and it
+  still writes forward through history.
+- **It never invents a language.** A locale code the `locales` table does not
+  hold is reported and skipped: adding a language is an `INSERT`, but a
+  deliberate one with a direction, a native name and a fallback to decide, and
+  an importer guessing at those puts a half-configured language in front of
+  readers. A language an app has deliberately *disabled* is likewise left off
+  and reported.
+- **Non-string leaves are reported and skipped, never coerced.** A `0` stored as
+  `"0"` reads as translated copy forever afterwards and nobody knows to look at
+  it again.
+- **The report is written before the transaction opens and again after it
+  closes.** The first copy is what survives a run that dies mid-write. It also
+  records whether the source tree was dirty — a SHA taken over uncommitted edits
+  does not describe what was read, and an audit trail that quietly says
+  otherwise is worse than none.
+- **The root script is `pnpm import:cms`.** `pnpm import` is a built-in pnpm
+  command (it converts a foreign lockfile), so pnpm resolves its own command
+  first and the flags never reach the CLI.
+- **Verification of the last box lives in `apps/backend/test/importer-runtime.e2e-spec.ts`.**
+  It imports a fixture and then fetches `/api/v1/apps/:slug/locales/:code` with
+  an API key, asserting the bundle against a hand-written expectation rather
+  than against the importer's own flattener — a check that reuses the code under
+  test only proves it is self-consistent. `@cms/importer` is a devDependency of
+  the backend for it, which is the correct direction: an app may depend on a
+  lib.
 
 ---
 
@@ -650,6 +885,149 @@ touching the database.
 
 ---
 
+## B13 — Invitations and the last-admin guard
+
+*After B9. The two gaps B9 surfaced, closed together because they are the same
+question — "can anyone still get in?" — asked at the two ends of an account's
+life.*
+
+### The product decision B9 left open
+
+**An admin mints a single-use link and delivers it.** Not an admin-chosen
+password, which is a credential two people know and which arrives over whatever
+channel the admin happened to use. Not an emailed invitation either — there is
+no mail transport in the CMS and adding SES to close a user-management gap is a
+deployment decision wearing a feature's clothes.
+
+The token comes back **exactly once**, in the response that mints it, with an
+`acceptUrl` built from `DASHBOARD_URL`. That is the contract
+`POST /apps/:appId/api-keys` already set, and it means the delivery channel is
+the admin's problem rather than the API's — which is the honest description of
+where it actually sits until a mail transport exists.
+
+### Migration `AddUserInvitations`
+
+Hand-written: the invariant is a partial unique index, which TypeORM cannot
+express from decorators.
+
+```
+user_invitations
+  id           uuid pk default gen_random_uuid()
+  user_id      uuid NOT NULL → users ON DELETE CASCADE
+  token_hash   varchar(255) NOT NULL UNIQUE
+  expires_at   timestamptz  NOT NULL
+  accepted_at  timestamptz
+  revoked_at   timestamptz
+  invited_by   uuid → users ON DELETE SET NULL
+  created_at, updated_at timestamptz NOT NULL default now()
+
+  CREATE UNIQUE INDEX uq_user_invitations_outstanding
+    ON user_invitations (user_id)
+    WHERE accepted_at IS NULL AND revoked_at IS NULL
+```
+
+`CASCADE` on `user_id`, unlike `api_keys.created_by`: an invitation with no
+account to accept into is not an audit record, it is a dangling credential.
+
+The partial index is the ticket's load-bearing constraint — **at most one
+outstanding invitation per user**. Re-issuing therefore has to revoke the
+previous token in the same transaction rather than merely being expected to,
+because two live tokens for one account means cancelling one of them
+accomplishes nothing.
+
+### `@InviteCredential()` — the fifth marker
+
+Auth Rule 2 caps `@Public()` at three routes and names the runtime endpoints as
+explicitly not an exception. The accept flow is not one either. It follows B7's
+precedent exactly: a marker decorator, a guard `JwtAuthGuard` delegates to, and
+`@Public()` still at three.
+
+`InviteTokenGuard` SHA-256s `X-Invite-Token`, looks up an outstanding,
+unexpired row and attaches `request.invitation`. The token is a **header**, not
+a path parameter — a secret in a URL lands in access logs, browser history and
+`Referer`. The dashboard reads `?token=` off the invite link and moves it into
+the header.
+
+Update `.claude/rules/nestjs-auth.md` and `.claude/agents/audit-api-auth/` in
+the same PR, as B7 did, or the auditor reports both routes as leaks and the
+next person learns to ignore it.
+
+### The surface
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| POST | `/users` | admin | now also mints the first invitation, same transaction |
+| GET | `/users/:id/invitations` | admin | the outstanding one, or `null`. Never the token |
+| POST | `/users/:id/invitations` | admin | re-issue; revokes whatever was outstanding |
+| DELETE | `/users/:id/invitations` | admin | cancel, without touching the account |
+| GET | `/invitations/me` | `X-Invite-Token` | renders the accept screen |
+| POST | `/invitations/accept` | `X-Invite-Token` | sets the first password, activates, signs in |
+
+### The last-admin guard
+
+`assertAnotherActiveAdminRemains` runs on two paths: a `PATCH` that demotes an
+active admin, and a `disable` of one. 422 rather than 403 — the caller has
+every permission required and the request is well-formed; it is the resulting
+*state* the domain refuses.
+
+It is a `SELECT … FOR UPDATE` over the active-admin rows, not a count.
+Two admins demoting each other at the same instant would both read "one other
+admin exists" and both commit, leaving zero — and every route that could undo
+that is `@Roles('admin')`, so the fix would be a `psql` session against
+production. `ORDER BY id` keeps lock acquisition in one direction so the pair
+blocks rather than deadlocks, and `getMany()` rather than `getCount()` because
+Postgres refuses `FOR UPDATE` alongside an aggregate.
+
+**Done when**
+
+- [x] A user created through `POST /users` can log in, and only by spending the
+      token that response returned
+- [x] The plaintext token appears in the create/re-issue response and in no
+      other response, including `GET /users/:id/invitations`
+- [x] Re-issuing kills the previous link
+- [x] A spent token, an expired token and a cancelled token all answer 401 —
+      the same 401, so the endpoint is not an oracle for who has been invited
+- [x] A CMS bearer token is not accepted on the invite routes, and an invite
+      token is not accepted anywhere else
+- [x] Demoting or disabling the last active admin → 422
+- [x] `@Public()` is still carried by exactly three routes
+
+**Decisions taken while building it**
+
+- **Accepting signs the new user in.** The alternative is a redirect to a login
+  form, immediately after the person has typed their new password once already
+  — and it spends one of the five logins a minute the throttler allows. It
+  reuses `AuthService.login` rather than minting tokens directly, so the
+  rotation and session-persistence rules cannot drift.
+- **That login runs *outside* the activation transaction.** Rolling the
+  activation back because session persistence hiccuped would burn the token and
+  leave the account permanently unusable.
+- **The accept handler re-reads the invitation under a row lock**, rather than
+  trusting what the guard resolved a moment earlier. Two submissions of the
+  form arriving together would otherwise both hash a password, the second
+  silently replacing the first.
+- **A rejected accept does not burn the token.** A password below the twelve
+  character floor is a 400 from the pipe, before the service runs — a typo that
+  invalidated the invitation would be a support ticket per typo.
+- **`InvitationsService` lives in `UsersModule`**, not in its own feature
+  module. It is the user lifecycle, not a separate feature, and a second module
+  would need `TypeOrmModule.forFeature([User])` of its own — which is the
+  module-structure rule's example of reaching around another feature's surface.
+  It carries a `forwardRef` for a genuine *import* cycle:
+  `users.service` → `invitations.service` → `auth.service` → `users.service`.
+- **Only an `invited` account can be invited.** Minting a token for an active
+  one is a password reset wearing the wrong name, and for a disabled one it
+  undoes the disable. Both answer 422.
+- **Self-disable stays a separate check with its own message.** It is the case
+  an admin hits by accident; the last-admin case is the one they hit while
+  reorganising the team, and the two need different things said to them.
+- **The last-admin guard does not cover a `DELETE`,** because there is none —
+  `translation_value_versions.changed_by` points at these rows, so accounts are
+  disabled rather than deleted. If a delete endpoint ever lands, it needs this
+  check too.
+
+---
+
 ## MVP acceptance criteria, mapped
 
 Architecture doc §14, against the tickets that satisfy each one.
@@ -660,7 +1038,7 @@ Architecture doc §14, against the tickets that satisfy each one.
 | Protected APIs reject requests with no Bearer token | done; B10 proves it for every route |
 | Expired tokens renew through the refresh flow | done |
 | Logout and deactivation revoke refresh sessions | logout done; deactivation B9 |
-| Admins manage applications, modules, locales, users | B2, B3, B4, B9 |
+| Admins manage applications, modules, locales, users | B2, B3, B4, B9, B13 |
 | Editors create keys and edit translations in permitted scopes | B5, B6 (role-only scope; see the decision table) |
 | Arabic and English work end to end, including RTL | B2, B3, B8 |
 | A new locale is enabled with no migration | B2 |

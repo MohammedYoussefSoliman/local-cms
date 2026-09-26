@@ -8,12 +8,23 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { appConfig, databaseConfig, jwtConfig } from './config/configuration';
+import {
+  appConfig,
+  databaseConfig,
+  invitationConfig,
+  jwtConfig,
+} from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { typeOrmConfig } from './config/typeorm.config';
+import { ApiKeysModule } from './modules/api-keys/api-keys.module';
+import { AppsModule } from './modules/apps/apps.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { EntriesModule } from './modules/entries/entries.module';
 import { HealthModule } from './modules/health/health.module';
 import { LocalesModule } from './modules/locales/locales.module';
+import { RuntimeModule } from './modules/runtime/runtime.module';
+import { TranslationModulesModule } from './modules/translation-modules/translation-modules.module';
+import { TranslationsModule } from './modules/translations/translations.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -22,7 +33,7 @@ import { UsersModule } from './modules/users/users.module';
       isGlobal: true,
       cache: true,
       validate: validateEnv,
-      load: [appConfig, jwtConfig, databaseConfig],
+      load: [appConfig, jwtConfig, databaseConfig, invitationConfig],
     }),
     TypeOrmModule.forRootAsync({
       inject: [databaseConfig.KEY],
@@ -31,9 +42,15 @@ import { UsersModule } from './modules/users/users.module';
     }),
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
 
+    ApiKeysModule,
+    AppsModule,
     AuthModule,
+    EntriesModule,
     HealthModule,
     LocalesModule,
+    RuntimeModule,
+    TranslationModulesModule,
+    TranslationsModule,
     UsersModule,
   ],
   providers: [

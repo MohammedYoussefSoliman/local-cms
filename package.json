@@ -23,7 +23,7 @@
     "typecheck": "pnpm -r --if-present run typecheck",
     "test": "pnpm -r --if-present run test",
     "test:backend": "pnpm --filter=@cms/backend run test",
-    "test:e2e": "pnpm --filter=@cms/backend run test:e2e",
+    "test:e2e": "pnpm --filter=@cms/backend run test:e2e && pnpm --filter=@cms/importer run test:e2e",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f postgres",
@@ -31,7 +31,8 @@
     "migration:create": "pnpm --filter=@cms/database run migration:create",
     "migration:run": "pnpm --filter=@cms/database run migration:run",
     "migration:revert": "pnpm --filter=@cms/database run migration:revert",
-    "seed": "pnpm --filter=@cms/database run seed"
+    "seed": "pnpm --filter=@cms/database run seed",
+    "import:cms": "pnpm --filter=@cms/importer run import"
   },
   "devDependencies": {
     "@cms/linting": "workspace:*",

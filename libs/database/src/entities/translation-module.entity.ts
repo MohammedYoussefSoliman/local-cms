@@ -24,6 +24,13 @@ import { TranslationEntry } from './translation-entry.entity';
  *   scope = 'global' ⇒ app_id IS NULL
  */
 @Entity({ name: 'modules' })
+/**
+ * The real index is PARTIAL (`WHERE app_id IS NOT NULL`), and there is a second
+ * one, `uq_modules_global_slug`, partial on `scope = 'global'` — neither is
+ * expressible in a decorator. `synchronize` is off so the difference is inert,
+ * but a future `migration:generate` will read this decorator and offer to
+ * replace the partial index with a plain one. Decline it; see `InitialSchema`.
+ */
 @Index('uq_modules_app_slug', ['appId', 'slug'], { unique: true })
 export class TranslationModule extends BaseEntity {
   @Column({ name: 'app_id', type: 'uuid', nullable: true })

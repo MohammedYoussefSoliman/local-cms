@@ -52,13 +52,18 @@ type Entry = { values: Record<string, string> };
 // ✅ — open set of locale codes, and a locale may genuinely have no value yet
 import type { TranslationRow } from '@cms/contracts';
 type Entry = TranslationRow;
-//   values: Record<string, { value: string; status; version } | undefined>
+//   values: Record<string, { value: string; status; version } | null>
 ```
 
-The `| undefined` is load-bearing: "this key has no Arabic yet" is the normal
-state of a translation table, not an error, and the dashboard renders it as a
+The `| null` is load-bearing: "this key has no Arabic yet" is the normal state
+of a translation table, not an error, and the dashboard renders it as a
 missing-translation cell. Reading `values[code].value` without the guard is the
 crash this type exists to prevent.
+
+It is `null` rather than `undefined` because the value crosses the wire.
+`JSON.stringify` drops an `undefined` property entirely, so the language with
+no translation — the one case the editor most needs a column for — would simply
+not appear in the response.
 
 The bootstrap constant `BOOTSTRAP_LOCALES` in `@cms/domain` seeds the
 `locales` table. It is **not** a type source — never derive a key union from it.

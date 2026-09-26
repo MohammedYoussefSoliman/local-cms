@@ -37,6 +37,15 @@ export class AppLocale {
   @Column({ name: 'fallback_locale_id', type: 'uuid', nullable: true })
   fallbackLocaleId: string | null;
 
+  /**
+   * Relation over the column above, so a read can report the fallback's *code*
+   * without a second round trip. `ON DELETE SET NULL` matches the FK already in
+   * `InitialSchema` — this adds no schema, only a join TypeORM can plan.
+   */
+  @ManyToOne(() => Locale, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'fallback_locale_id' })
+  fallbackLocale: Locale | null;
+
   @Column({ name: 'is_enabled', type: 'boolean', default: true })
   isEnabled: boolean;
 }

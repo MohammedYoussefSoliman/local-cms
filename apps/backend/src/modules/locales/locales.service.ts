@@ -51,6 +51,35 @@ export class LocalesService {
     };
   }
 
+  /**
+   * Resolves the `:localeCode` segment other features route on. Returns the
+   * entity rather than a response shape because the caller is another service,
+   * not a controller — nothing here reaches the HTTP boundary.
+   *
+   * Canonicalized first, so a request for `PT-br` finds the `pt-BR` row instead
+   * of 404ing on a casing difference.
+   */
+  findEntityByCode(code: string): Promise<Locale | null> {
+    return this.locales.findOne({
+      where: { code: canonicalizeLocaleCode(code) },
+    });
+  }
+
+  /**
+   * Every active language, as codes. Unbounded on purpose and safe to be so:
+   * `locales` is a reference table bounded by the number of languages the CMS
+   * knows about, not by content (typeorm Rule 6 is about the tables that grow).
+   */
+  async findActiveCodes(): Promise<string[]> {
+    const records = await this.locales.find({
+      where: { isActive: true },
+      select: { code: true },
+      order: { code: 'ASC' },
+    });
+
+    return records.map((locale) => locale.code);
+  }
+
   async create(dto: CreateLocaleDto): Promise<LocaleResponseData> {
     // No `findOne` first. `uq_locales_code` is the check, and
     // HttpExceptionFilter turns its 23505 into a 409 — a pre-check is a race

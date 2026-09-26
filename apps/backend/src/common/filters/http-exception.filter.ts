@@ -31,7 +31,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const response = context.getResponse<Response>();
     const request = context.getRequest<Request>();
 
-    const { statusCode, message, error, fieldErrors } =
+    const { statusCode, message, error, fieldErrors, details } =
       this.normalize(exception);
 
     if (statusCode >= HttpStatus.INTERNAL_SERVER_ERROR) {
@@ -46,6 +46,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message,
       error,
       ...(fieldErrors ? { fieldErrors } : {}),
+      ...(details ? { details } : {}),
       path: request.url,
       timestamp: new Date().toISOString(),
     };
@@ -58,6 +59,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     message: string;
     error: string;
     fieldErrors?: Record<string, string[]>;
+    details?: Record<string, unknown>;
   } {
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
@@ -71,6 +73,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message?: string | string[];
         error?: string;
         fieldErrors?: Record<string, string[]>;
+        details?: Record<string, unknown>;
       };
 
       return {
@@ -80,6 +83,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
           : (record.message ?? exception.message),
         error: record.error ?? exception.name,
         ...(record.fieldErrors ? { fieldErrors: record.fieldErrors } : {}),
+        ...(record.details ? { details: record.details } : {}),
       };
     }
 

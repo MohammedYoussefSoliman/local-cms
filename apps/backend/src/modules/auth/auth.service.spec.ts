@@ -73,4 +73,15 @@ describe('AuthService', () => {
       expect.objectContaining({ revokedAt: expect.any(Date) }),
     );
   });
+
+  it('scopes a logout to the caller, so it cannot revoke a session owned by another user', async () => {
+    await service.logout('user-1', 'some-refresh-token');
+
+    // The userId in the criteria is the whole point: without it, possession of
+    // any refresh token is enough to end that session, whoever presents it.
+    expect(sessions.update).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-1' }),
+      expect.objectContaining({ revokedAt: expect.any(Date) }),
+    );
+  });
 });

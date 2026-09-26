@@ -19,8 +19,10 @@ tickets B1-B12 and records the decisions that closed six of the architecture
 doc's §15 open items. Read it before starting any backend feature.
 
 **Current phase: 1 (Foundation).** The workspace, database schema, auth, and
-shared packages exist. Feature CRUD (Phase 2), the dashboard UI (Phase 3), and
-the importer (Phase 4) do not yet.
+shared packages exist. Feature CRUD (Phase 2) and the importer (Phase 4) have
+landed ticket by ticket through `docs/Backend-Delivery-Plan.md`; the dashboard
+UI (Phase 3) does not exist yet. The phase marker moves in B12, once the
+architecture doc and this file are reconciled in one pass.
 
 ## Package manager
 
@@ -47,7 +49,12 @@ pnpm lint / pnpm lint:fix
 pnpm typecheck
 pnpm test                  # every package that defines one
 pnpm test:backend          # Jest
-pnpm test:e2e              # needs a migrated database, runs in band
+pnpm test:e2e              # needs a migrated database, runs in band; backend + importer
+
+# Importer (Phase 4)
+pnpm import:cms --source ../yamm-client-monorepo      # dry run; writes a report only
+pnpm import:cms --source ../yamm-client-monorepo --commit
+# Named import:cms because `pnpm import` is a built-in pnpm command.
 
 # Migrations
 pnpm migration:generate libs/database/src/migrations/AddThing
@@ -73,6 +80,7 @@ libs/
   domain/         @cms/domain     domain types and invariant docs; no deps
   contracts/      @cms/contracts  HTTP payload/response types shared by both apps
   database/       @cms/database   entities, migrations, seeds, DataSource
+  importer/       @cms/importer   JSON/TS locale-file discovery and hydration CLI
   ui/             @cms/ui         shared dashboard components and helpers
   configs/        @cms/configs    shared tsconfig + jest preset
   linting/        @cms/linting    shared ESLint flat configs (node / react)

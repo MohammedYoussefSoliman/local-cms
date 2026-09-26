@@ -1,5 +1,5 @@
 import { RefreshSession } from '@cms/database';
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -19,7 +19,9 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     // refresh paths cannot accidentally share one.
     JwtModule.register({}),
     TypeOrmModule.forFeature([RefreshSession]),
-    UsersModule,
+    // Mutual: `UsersService` needs `AuthService.revokeAllForUser` to make
+    // disabling an account take effect immediately. See `UsersModule`.
+    forwardRef(() => UsersModule),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

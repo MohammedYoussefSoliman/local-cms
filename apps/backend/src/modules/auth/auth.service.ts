@@ -1,7 +1,12 @@
 import { createHash, randomBytes } from 'node:crypto';
 
 import { RefreshSession, User } from '@cms/database';
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  UnauthorizedException,
+  forwardRef,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
@@ -23,6 +28,13 @@ type IssuedTokens = {
 @Injectable()
 export class AuthService {
   constructor(
+    /**
+     * `forwardRef` because `UsersService` injects this service back — disabling
+     * an account has to revoke its sessions. Without it the two files import
+     * each other eagerly and whichever loads second sees `undefined` where the
+     * other class should be, which surfaces as an unrelated-looking DI error.
+     */
+    @Inject(forwardRef(() => UsersService))
     private readonly users: UsersService,
     private readonly jwt: JwtService,
     @Inject(jwtConfig.KEY)
@@ -93,9 +105,15 @@ export class AuthService {
     return tokens;
   }
 
-  async logout(refreshToken: string): Promise<void> {
+  /**
+   * Scoped to `userId` deliberately. Matching on the token hash alone would let
+   * any authenticated caller revoke a session belonging to someone else merely
+   * by presenting that person's refresh token — the access token says who is
+   * asking, so it decides whose sessions are in reach.
+   */
+  async logout(userId: string, refreshToken: string): Promise<void> {
     await this.sessions.update(
-      { tokenHash: this.hashToken(refreshToken), revokedAt: IsNull() },
+      { userId, tokenHash: this.hashToken(refreshToken), revokedAt: IsNull() },
       { revokedAt: new Date() },
     );
   }
