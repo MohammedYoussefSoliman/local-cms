@@ -1,4 +1,4 @@
-import type { ContentType, TranslationStatus } from '@cms/domain';
+import type { ContentType, TextDirection, TranslationStatus } from '@cms/domain';
 
 export type CreateEntryPayload = {
   key: string;
@@ -50,6 +50,13 @@ export type UpsertTranslationPayload = {
  */
 export type TranslationNotePayload = {
   changeNote?: string;
+  /**
+   * The version the caller believed the value was on. Optional: the importer
+   * and the smoke script publish without one, and omitting it keeps
+   * last-write-wins. The dashboard always sends it, because a batch publish
+   * that skips the check can put text on a live storefront that nobody read.
+   */
+  expectedVersion?: number;
 };
 
 /** One localized string, as the CMS returns it. */
@@ -107,4 +114,37 @@ export type TranslationRow = {
     string,
     { value: string; status: TranslationStatus; version: number } | null
   >;
+};
+
+/**
+ * One row of the drafts queue — every saved-but-unpublished value in an app.
+ *
+ * `id` is the `translation_values` id, which is what
+ * `POST /translations/:id/publish` takes: the queue is a list of publish
+ * targets, so it is addressed the way publishing addresses them.
+ */
+export type DraftValueRow = {
+  id: string;
+  entryId: string;
+  key: string;
+  contentType: ContentType;
+  moduleId: string;
+  moduleName: string;
+  moduleSlug: string;
+  localeCode: string;
+  /**
+   * The locale's OWN reading direction. Denormalized here because the value
+   * cell renders in it — never in the UI language's direction, and never in a
+   * direction inferred from a hard-coded `ar|he|fa` list, which is invariant
+   * Rule 1's language union wearing a different hat.
+   */
+  localeDirection: TextDirection;
+  value: string;
+  /** `draft` or `in_review`. Carried so the rare in_review row can be labelled. */
+  status: TranslationStatus;
+  /** Send this back as `expectedVersion` when publishing. */
+  version: number;
+  updatedAt: string;
+  /** `null` when the author's account was deleted, or for importer writes. */
+  updatedByName: string | null;
 };

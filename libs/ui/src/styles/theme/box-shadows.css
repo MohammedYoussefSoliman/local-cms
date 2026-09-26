@@ -1,0 +1,18 @@
+/*
+ * Elevation, ported from `@yamm/styles`. `regular-*` is the neutral ramp used
+ * by inputs, cards and menus; the `*-focus` shadows are the focus rings the
+ * form controls reach for.
+ */
+@theme {
+  --shadow-regular-xs: 0 1px 2px 0 rgb(10 13 20 / 0.03);
+  --shadow-regular-sm: 0 2px 4px 0 rgb(27 28 29 / 0.04);
+  --shadow-regular-md: 0 16px 32px -12px rgb(14 18 27 / 0.1);
+  --shadow-regular-lg: 0 16px 40px -8px rgb(14 18 27 / 0.16);
+
+  --shadow-button-primary-focus:
+    0 0 0 2px var(--color-white), 0 0 0 4px rgb(146 92 255 / 0.24);
+  --shadow-button-error-focus:
+    0 0 0 2px var(--color-white), 0 0 0 4px rgb(251 55 72 / 0.24);
+  --shadow-button-neutral-focus:
+    0 0 0 2px var(--color-white), 0 0 0 4px rgb(13 13 13 / 0.16);
+}

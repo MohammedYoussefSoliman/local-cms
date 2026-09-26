@@ -1,6 +1,7 @@
 import axios, {
   AxiosError,
   type AxiosRequestConfig,
+  type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from 'axios';
 
@@ -9,6 +10,24 @@ import type { AuthTokens, HTTPResponseType } from '@cms/contracts';
 import { useAuthStore } from '@/store';
 
 type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean };
+
+/**
+ * What a call actually resolves to, once the response interceptor below has
+ * unwrapped the envelope.
+ *
+ * Axios's second generic is the full response type, so a hook writes both:
+ *
+ * ```ts
+ * axiosInstance.get<HTTPResponseType<Thing>, ApiResponse<Thing>>('/things')
+ * ```
+ *
+ * The first names the shape on the wire — the contract every endpoint answers
+ * with, and what `.claude/rules/global-api-service.md` requires be stated. The
+ * second is what `response.data` is after unwrapping. Writing only the first
+ * types `response.data` as the envelope, which is a lie the compiler then
+ * enforces at every call site.
+ */
+export type ApiResponse<T> = AxiosResponse<T>;
 
 /**
  * The single axios instance for the whole dashboard. Feature code imports this

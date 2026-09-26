@@ -1,17 +1,18 @@
-import { cn } from '../../functions/cn';
+import { cn } from '../../functions';
 
 import type { SkeletonProps } from './Skeleton.types';
 
 /**
- * The only skeleton primitive. Sizing comes from `className`; the pulse and
- * base colour are fixed so every loading state in the product animates
- * identically.
+ * The only pulse primitive in the dashboard. Size it with `className` to match
+ * the element it stands in for — never wrap a page in one generic grey box.
+ * The mapping from element to skeleton dimensions is in
+ * `.claude/rules/global-skeleton-loading.md` Rule 2.
  */
 export function Skeleton({ className, ...props }: SkeletonProps) {
   return (
     <div
-      aria-hidden
-      className={cn('animate-pulse rounded bg-neutral-200', className)}
+      data-testid="skeleton"
+      className={cn('h-4 w-full animate-pulse rounded-4 bg-sub-light', className)}
       {...props}
     />
   );

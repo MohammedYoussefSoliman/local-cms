@@ -293,6 +293,22 @@ export class TranslationsService {
         await this.findAppIdForValue(manager, id),
       );
 
+      /**
+       * Version first, state machine second — deliberately.
+       *
+       * If a colleague already published this row, both checks would fire. The
+       * 409 carries `currentStatus: 'published'` in `details`, which lets the
+       * dashboard say "someone already published this" and drop the row. The
+       * 422 says only "cannot go from published to published", which sends the
+       * editor looking for a bug that is not there.
+       */
+      if (
+        dto.expectedVersion !== undefined &&
+        dto.expectedVersion !== value.version
+      ) {
+        throw staleVersion(value);
+      }
+
       if (!allowedFrom.includes(value.status)) {
         throw new UnprocessableEntityException(
           `A translation cannot go from "${value.status}" to "${next}".`,

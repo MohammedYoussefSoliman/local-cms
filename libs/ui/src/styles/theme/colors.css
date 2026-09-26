@@ -1,0 +1,240 @@
+/*
+ * Color tokens, ported from the frontend monorepo's `@yamm/styles`
+ * (`libs/styles/src/theme/colors.css`) so the dashboard inherits the same
+ * design system its sibling apps use.
+ *
+ * Two layers, deliberately:
+ *   1. `:root` holds the raw ramps (neutral/blue/red/…). These never change.
+ *   2. `@theme` maps the ramps onto SEMANTIC tokens (`strong`, `weak`,
+ *      `soft-light`, `primary-base`). Components only ever name the semantic
+ *      layer, which is what lets `.dark` re-point them without touching a
+ *      single component.
+ *
+ * Never reach for a raw `neutral-*` utility in a component — that bypasses the
+ * dark-mode swap below and pins the element to one theme.
+ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* Neutral */
+  --color-neutral-950: #0d0d0d;
+  --color-neutral-900: #1a1a1a;
+  --color-neutral-800: #333333;
+  --color-neutral-700: #4d4d4d;
+  --color-neutral-600: #666666;
+  --color-neutral-500: #7a7a7a;
+  --color-neutral-400: #999999;
+  --color-neutral-300: #b3b3b3;
+  --color-neutral-200: #cccccc;
+  --color-neutral-100: #e6e6e6;
+  --color-neutral-50: #f6f8fa;
+
+  /* Blue */
+  --color-blue-950: #122368;
+  --color-blue-900: #182f8b;
+  --color-blue-800: #1f3bad;
+  --color-blue-700: #2547d0;
+  --color-blue-600: #3559e9;
+  --color-blue-500: #335cff;
+  --color-blue-400: #6895ff;
+  --color-blue-300: #97baff;
+  --color-blue-200: #c0d5ff;
+  --color-blue-100: #d5e2ff;
+  --color-blue-50: #ebf1ff;
+
+  /* Orange */
+  --color-orange-950: #71330a;
+  --color-orange-900: #96440d;
+  --color-orange-800: #b75310;
+  --color-orange-700: #ce5e12;
+  --color-orange-600: #e16614;
+  --color-orange-500: #fa7319;
+  --color-orange-400: #ffa468;
+  --color-orange-300: #ffc197;
+  --color-orange-200: #ffd9c0;
+  --color-orange-100: #ffe6d5;
+  --color-orange-50: #fff3eb;
+
+  /* Red */
+  --color-red-950: #681219;
+  --color-red-900: #8b1822;
+  --color-red-800: #ad1f2b;
+  --color-red-700: #d02533;
+  --color-red-600: #e93544;
+  --color-red-500: #fb3748;
+  --color-red-400: #ff6875;
+  --color-red-300: #ff97a0;
+  --color-red-200: #ffc0c5;
+  --color-red-100: #ffd5d8;
+  --color-red-50: #ffebec;
+
+  /* Green */
+  --color-green-950: #0b4627;
+  --color-green-900: #16643b;
+  --color-green-800: #1a7544;
+  --color-green-700: #178c4e;
+  --color-green-600: #1daf61;
+  --color-green-500: #1fc16b;
+  --color-green-400: #3ee089;
+  --color-green-300: #84ebb4;
+  --color-green-200: #c2f5da;
+  --color-green-100: #d0fbe9;
+  --color-green-50: #e0faec;
+
+  /* Yellow */
+  --color-yellow-950: #624c18;
+  --color-yellow-900: #86661d;
+  --color-yellow-800: #a78025;
+  --color-yellow-700: #c99a2c;
+  --color-yellow-600: #e6a819;
+  --color-yellow-500: #f6b51e;
+  --color-yellow-400: #ffd268;
+  --color-yellow-300: #ffe097;
+  --color-yellow-200: #ffecc0;
+  --color-yellow-100: #ffefcc;
+  --color-yellow-50: #fffaeb;
+
+  /* Purple */
+  --color-purple-950: #2f0b6a;
+  --color-purple-900: #4d169c;
+  --color-purple-800: #5d18bf;
+  --color-purple-700: #701ee3;
+  --color-purple-600: #7e30f7;
+  --color-purple-500: #925cff;
+  --color-purple-400: #a785ff;
+  --color-purple-300: #c4b1ff;
+  --color-purple-200: #dcd4ff;
+  --color-purple-100: #ede8ff;
+  --color-purple-50: #f5f2ff;
+
+  /* White */
+  --color-white-500: #ffffff;
+}
+
+@theme {
+  /* Statics — the two colors that never flip. */
+  --color-statics-black: var(--color-neutral-950);
+  --color-statics-white: var(--color-white-500);
+
+  /* Surfaces and text */
+  --color-strong: var(--color-neutral-950);
+  --color-surface: var(--color-neutral-800);
+  --color-sub-dark: var(--color-neutral-600);
+  --color-soft-medium: var(--color-neutral-400);
+  --color-sub-medium: var(--color-neutral-300);
+  --color-sub-light: var(--color-neutral-200);
+  --color-soft-light: var(--color-neutral-100);
+  --color-weak: var(--color-neutral-50);
+  --color-white: var(--color-white-500);
+
+  /* Primary */
+  --color-primary-dark: var(--color-purple-800);
+  --color-primary-base: var(--color-purple-500);
+  --color-primary-light: var(--color-purple-200);
+  --color-primary-lighter: var(--color-purple-50);
+
+  /* Faded — mid neutrals that stay put across themes. Use these wherever the
+     design pins something to the raw Neutral scale in both modes. */
+  --color-faded-dark: var(--color-neutral-950);
+  --color-faded-base: var(--color-neutral-800);
+  --color-faded-light: var(--color-neutral-100);
+  --color-faded-lighter: var(--color-neutral-50);
+  --color-faded-strong: var(--color-neutral-700);
+  --color-faded-medium: var(--color-neutral-600);
+  --color-faded-soft: var(--color-neutral-500);
+
+  /* Information */
+  --color-information-dark: var(--color-blue-950);
+  --color-information-base: var(--color-blue-500);
+  --color-information-light: var(--color-blue-200);
+  --color-information-lighter: var(--color-blue-50);
+
+  /* Warning */
+  --color-warning-dark: var(--color-yellow-950);
+  --color-warning-base: var(--color-yellow-500);
+  --color-warning-light: var(--color-yellow-200);
+  --color-warning-lighter: var(--color-yellow-50);
+
+  /* Error */
+  --color-error-dark: var(--color-red-950);
+  --color-error-base: var(--color-red-500);
+  --color-error-light: var(--color-red-200);
+  --color-error-lighter: var(--color-red-50);
+  /* Content color for text/icons on an `error-lighter` surface. Matches
+     `error-base` in light theme; lightened under `.dark`, where
+     `error-lighter` becomes a deep red. */
+  --color-error-on-lighter: var(--color-red-500);
+
+  /* Success */
+  --color-success-dark: var(--color-green-950);
+  --color-success-base: var(--color-green-500);
+  --color-success-light: var(--color-green-200);
+  --color-success-lighter: var(--color-green-50);
+
+  /* Away */
+  --color-away-dark: var(--color-orange-950);
+  --color-away-base: var(--color-orange-500);
+  --color-away-light: var(--color-orange-200);
+  --color-away-lighter: var(--color-orange-50);
+
+  /* Disabled / hover */
+  --color-disabled-light: var(--color-neutral-200);
+  --color-disabled-lighter: var(--color-neutral-50);
+  --color-hover: var(--color-neutral-50);
+}
+
+.dark {
+  --color-statics-black: var(--color-neutral-950);
+  --color-statics-white: var(--color-white-500);
+  --color-strong: var(--color-white-500);
+  --color-surface: var(--color-neutral-800);
+  --color-sub-dark: var(--color-neutral-100);
+  --color-soft-medium: var(--color-neutral-200);
+  --color-sub-medium: var(--color-neutral-300);
+  --color-sub-light: var(--color-neutral-600);
+  --color-soft-light: var(--color-neutral-700);
+  --color-weak: #0e0827;
+  --color-white: #25284a;
+
+  --color-primary-dark: var(--color-purple-50);
+  --color-primary-base: var(--color-purple-500);
+  --color-primary-light: var(--color-purple-700);
+  --color-primary-lighter: var(--color-purple-800);
+
+  --color-faded-dark: var(--color-neutral-400);
+  --color-faded-base: var(--color-neutral-800);
+  --color-faded-light: var(--color-neutral-100);
+  --color-faded-lighter: var(--color-neutral-50);
+
+  --color-information-dark: var(--color-blue-50);
+  --color-information-base: var(--color-blue-500);
+  --color-information-light: var(--color-blue-700);
+  --color-information-lighter: var(--color-blue-950);
+
+  --color-warning-dark: var(--color-yellow-50);
+  --color-warning-base: var(--color-yellow-500);
+  --color-warning-light: var(--color-yellow-700);
+  --color-warning-lighter: var(--color-yellow-950);
+
+  --color-error-dark: var(--color-red-50);
+  --color-error-base: var(--color-red-500);
+  --color-error-light: var(--color-red-700);
+  --color-error-lighter: var(--color-red-950);
+  --color-error-on-lighter: var(--color-red-400);
+
+  --color-success-dark: var(--color-green-50);
+  --color-success-base: var(--color-green-500);
+  --color-success-light: var(--color-green-700);
+  --color-success-lighter: var(--color-green-950);
+
+  --color-away-dark: var(--color-orange-50);
+  --color-away-base: var(--color-orange-500);
+  --color-away-light: var(--color-orange-700);
+  --color-away-lighter: var(--color-orange-950);
+
+  --color-disabled-light: var(--color-neutral-600);
+  --color-disabled-lighter: var(--color-neutral-400);
+
+  --color-hover: var(--color-weak);
+}

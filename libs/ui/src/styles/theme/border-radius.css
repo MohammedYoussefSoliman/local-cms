@@ -1,0 +1,17 @@
+/*
+ * Radii, ported from `@yamm/styles`. `--radius-*: initial` clears Tailwind's
+ * own `sm`/`md`/`lg` scale so `rounded-md` cannot silently resolve to a value
+ * that is not in this system — every radius in the dashboard is a number from
+ * this list.
+ */
+@theme {
+  --radius-*: initial;
+  --radius-4: 0.25rem;
+  --radius-8: 0.5rem;
+  --radius-12: 0.75rem;
+  --radius-16: 1rem;
+  --radius-20: 1.25rem;
+  --radius-24: 1.5rem;
+  --radius-32: 2rem;
+  --radius-full: 62.4375rem;
+}

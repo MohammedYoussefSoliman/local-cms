@@ -1,28 +1,63 @@
 @import 'tailwindcss';
 
 /*
- * Design tokens. Every spacing, radius, and type step used in the dashboard
- * comes from here — arbitrary Tailwind values (`text-[14px]`) are banned by
- * .claude/rules/global-react-components.md precisely so this file stays the
- * single source of truth.
+ * The dashboard's single stylesheet entry point (`@cms/ui/styles.css`).
+ *
+ * Design tokens are split per concern under `theme/`, mirroring
+ * `libs/styles/src/theme/` in the frontend monorepo so the two systems can be
+ * diffed against each other. Every spacing, radius, colour and type step used
+ * in the dashboard comes from there — arbitrary Tailwind values
+ * (`text-[14px]`) are banned by `.claude/rules/global-react-components.md`
+ * precisely so these files stay the single source of truth.
  */
+@import './theme/colors.css';
+@import './theme/typography.css';
+@import './theme/border-radius.css';
+@import './theme/box-shadows.css';
+@import './theme/animation.css';
+
+/*
+ * Tailwind v4 scans the importing project's tree by default, which stops at
+ * the app. `@cms/ui` lives outside it, so its classes have to be pointed at
+ * explicitly or every component in this package renders unstyled.
+ */
+@source '../../src';
+
+/* Arabic needs a font with real Arabic coverage; the Latin stack alone falls
+   back to a system face that breaks the vertical rhythm. */
 @theme {
-  --color-brand: oklch(0.55 0.19 258);
-  --color-brand-soft: oklch(0.95 0.03 258);
-
-  --text-paragraph-xs: 0.75rem;
-  --text-paragraph-sm: 0.875rem;
-  --text-paragraph-md: 1rem;
-  --text-label-lg: 1.125rem;
-  --text-title-h5: 1.25rem;
-
-  --radius-4: 0.25rem;
-  --radius-8: 0.5rem;
-  --radius-12: 0.75rem;
+  --font-sans: 'Inter', 'IBM Plex Sans Arabic', system-ui, sans-serif;
 }
 
-/* Arabic needs a font with real Arabic coverage; the Latin stack alone
-   falls back to a system face that breaks the vertical rhythm. */
-:root {
-  --font-sans: 'Inter', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+@layer base {
+  * {
+    border-color: var(--color-soft-light);
+  }
+
+  body {
+    background-color: var(--color-weak);
+    color: var(--color-strong);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* The scrollbar is part of the chrome; left at browser defaults it is the
+     one element that ignores the theme entirely. */
+  ::-webkit-scrollbar {
+    width: 0.5rem;
+    height: 0.5rem;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-sub-light);
+    border-radius: var(--radius-full);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-soft-medium);
+  }
 }

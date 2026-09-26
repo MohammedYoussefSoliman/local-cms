@@ -1,3 +1,3 @@
-import type { ComponentPropsWithRef } from 'react';
+import type { ComponentProps } from 'react';
 
-export type SkeletonProps = ComponentPropsWithRef<'div'>;
+export type SkeletonProps = ComponentProps<'div'>;

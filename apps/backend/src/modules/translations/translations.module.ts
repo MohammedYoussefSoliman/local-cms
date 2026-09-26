@@ -7,6 +7,8 @@ import { EntriesModule } from '../entries/entries.module';
 import { LocalesModule } from '../locales/locales.module';
 import { TranslationModulesModule } from '../translation-modules/translation-modules.module';
 
+import { AppDraftsController } from './app-drafts.controller';
+import { DraftsService } from './drafts.service';
 import { EntryTranslationsController } from './entry-translations.controller';
 import { TranslationsController } from './translations.controller';
 import { TranslationsService } from './translations.service';
@@ -28,7 +30,11 @@ import { TranslationsService } from './translations.service';
     AppsModule,
     LocalesModule,
   ],
-  controllers: [EntryTranslationsController, TranslationsController],
-  providers: [TranslationsService],
+  controllers: [
+    AppDraftsController,
+    EntryTranslationsController,
+    TranslationsController,
+  ],
+  providers: [DraftsService, TranslationsService],
 })
 export class TranslationsModule {}

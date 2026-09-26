@@ -6,6 +6,19 @@ export type HandledHttpError = {
   message: string;
   /** Maps a form field to its server-side validation messages. */
   fieldErrors: Record<string, string[]>;
+  /**
+   * Machine-readable context the message cannot carry. The case that needs it
+   * is the 409 a stale `expectedVersion` produces: invariant Rule 7 requires
+   * the *current* value to come back with the rejection so the dashboard can
+   * show a diff rather than a dead end.
+   *
+   * Deliberately left as `Record<string, unknown>` — the envelope is shared by
+   * every error, so narrowing belongs in one typed reader per case (see
+   * `readTranslationConflict`), not here.
+   */
+  details?: Record<string, unknown>;
+  /** The HTTP status, when the failure reached the server at all. */
+  status?: number;
 };
 
 /**
@@ -23,6 +36,8 @@ export function handleHttpError(
     return {
       message: payload?.message || error.message || fallback,
       fieldErrors: payload?.fieldErrors ?? {},
+      details: payload?.details,
+      status: error.response?.status,
     };
   }
 

@@ -1,0 +1,2 @@
+import './ar';
+import './en';
