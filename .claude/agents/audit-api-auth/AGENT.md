@@ -32,8 +32,8 @@ Enforce `.claude/rules/nestjs-auth.md` and Rule 5 of
 | A1  | `@Public()` outside the allowed three routes  | `@Public()` on anything but `POST /auth/login`, `POST /auth/refresh`, `GET /health` |
 | A2  | Guard order wrong or incomplete               | `JwtAuthGuard` not registered before `RolesGuard` in `app.module.ts`, or either missing |
 | A3  | Redundant local guard                         | `@UseGuards(JwtAuthGuard)` on a controller or handler — it is already global   |
-| A4  | Mutating endpoint with no role decision       | `@Post`/`@Put`/`@Patch`/`@Delete` handler with no `@Roles()`, no `@ServiceCredential()`, and no `// no-role:` justification comment |
-| A5  | Raw `request.user` / `request.apiKey` access  | `@Req()` / `@Request()` used to read `.user` or `.apiKey` instead of `@CurrentUser()` / `@CurrentApiKey()` |
+| A4  | Mutating endpoint with no role decision       | `@Post`/`@Put`/`@Patch`/`@Delete` handler with no `@Roles()`, no `@ServiceCredential()`, no `@InviteCredential()`, and no `// no-role:` justification comment |
+| A5  | Raw `request.user` / `request.apiKey` / `request.invitation` access  | `@Req()` / `@Request()` used to read `.user`, `.apiKey` or `.invitation` instead of `@CurrentUser()` / `@CurrentApiKey()` / `@CurrentInvitation()` |
 | A6  | Role check inside a service                   | `user.role !== ` or `role === 'admin'` in a `*.service.ts`                      |
 | A7  | Entity returned to the client                 | Handler return type or returned expression is a repository result with no field mapping |
 | A8  | Auth endpoint not rate-limited                | `/auth/login` or `/auth/refresh` handler with no `@Throttle()`                  |
@@ -59,6 +59,22 @@ Three things to check on such a route instead:
 | A12  | Key scope never checked                    | a `@ServiceCredential()` handler taking an `:appSlug`/`:appId` with no `assertServesApp` on the path — one app's key reads another app's content |
 
 Rank A10 with the Critical group and A11/A12 with High.
+
+### `@InviteCredential()` — the fifth marker
+
+A route carrying it is **authenticated**, by a single-use invitation token
+rather than by a user session: `JwtAuthGuard` reads the marker and delegates to
+`InviteTokenGuard`. Do not report it as A1. It is how someone with no account
+yet sets their first password, and the point of it is the same — `@Public()`
+stays capped at three routes.
+
+| ID   | Violation                                    | How to detect                                                        |
+| ---- | -------------------------------------------- | -------------------------------------------------------------------- |
+| A13  | `@InviteCredential()` outside the accept flow | the marker on anything but `GET /invitations/me` and `POST /invitations/accept` — every such route is reachable by whoever forwarded the invite email |
+| A14  | `@Roles()` alongside `@InviteCredential()`    | both on one handler or its class: there is no `request.user`, so the `@Roles()` is dead and the route answers a blanket 403 |
+| A15  | Invitation token read from the path           | a `:token` route param, or the token in a query string, on an invite route — a secret in a URL lands in access logs, browser history and `Referer` |
+
+Rank A13 and A15 with the Critical group and A14 with High.
 
 ---
 

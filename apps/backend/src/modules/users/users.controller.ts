@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -18,11 +19,15 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { ListUsersQueryDto } from './dto/list-users.query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { InvitationsService } from './invitations.service';
 import { UsersService } from './users.service';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly users: UsersService) {}
+  constructor(
+    private readonly users: UsersService,
+    private readonly invitations: InvitationsService,
+  ) {}
 
   /**
    * Declared before `:id/...` so `me` is read as a literal. Express would match
@@ -66,11 +71,53 @@ export class UsersController {
     return this.users.findOne(id);
   }
 
-  /** Creates an `invited` account — see `UsersService.create`. */
+  /**
+   * Creates an `invited` account **and** its first invitation, in one
+   * transaction — see `UsersService.create`. The response carries the
+   * single-use token exactly once.
+   */
   @Roles('admin')
   @Post()
-  create(@Body() dto: CreateUserDto) {
-    return this.users.create(dto);
+  create(@Body() dto: CreateUserDto, @CurrentUser('sub') invitedBy: string) {
+    return this.users.create(dto, invitedBy);
+  }
+
+  /**
+   * The outstanding invitation for this account, or `null`. No token: the
+   * plaintext only ever exists in the response that minted it, so re-sending a
+   * link means re-issuing one.
+   */
+  @Roles('admin')
+  @Get(':id/invitations')
+  findInvitation(@Param('id', ParseUUIDPipe) id: string) {
+    return this.invitations.findOutstanding(id);
+  }
+
+  /**
+   * Re-issues: revokes whatever was outstanding and mints a new token. This is
+   * the "resend the invite" button, and it is also the only way to replace a
+   * link that expired — there is no way to recover the old one.
+   */
+  @Roles('admin')
+  @Post(':id/invitations')
+  @HttpCode(HttpStatus.CREATED)
+  invite(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('sub') invitedBy: string,
+  ) {
+    return this.invitations.issue(id, invitedBy);
+  }
+
+  /**
+   * Cancels an invitation without touching the account, for the case where the
+   * link went to the wrong address. The account stays `invited` and can be
+   * invited again; disabling it is the stronger move.
+   */
+  @Roles('admin')
+  @Delete(':id/invitations')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async revokeInvitation(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+    await this.invitations.revokeOutstanding(id);
   }
 
   @Roles('admin')

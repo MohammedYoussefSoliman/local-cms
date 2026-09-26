@@ -8,6 +8,7 @@ export * from './translation-entry.entity';
 export * from './translation-module.entity';
 export * from './translation-value-version.entity';
 export * from './translation-value.entity';
+export * from './user-invitation.entity';
 export * from './user.entity';
 
 import { ApiKey } from './api-key.entity';
@@ -19,6 +20,7 @@ import { TranslationEntry } from './translation-entry.entity';
 import { TranslationModule } from './translation-module.entity';
 import { TranslationValueVersion } from './translation-value-version.entity';
 import { TranslationValue } from './translation-value.entity';
+import { UserInvitation } from './user-invitation.entity';
 import { User } from './user.entity';
 
 /**
@@ -39,4 +41,5 @@ export const ENTITIES = [
   TranslationValue,
   TranslationValueVersion,
   User,
+  UserInvitation,
 ];

@@ -5,6 +5,7 @@ import type { ApiKey } from '@cms/database';
 
 
 import {
+  INVITE_CREDENTIAL_KEY,
   IS_PUBLIC_KEY,
   SERVICE_CREDENTIAL_KEY,
   type ServiceCredentialRequest,
@@ -12,6 +13,7 @@ import {
 import { ApiKeysService } from '../../modules/api-keys/api-keys.service';
 
 import { ApiKeyGuard } from './api-key.guard';
+import { InviteTokenGuard } from './invite-token.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 import type { ExecutionContext } from '@nestjs/common';
@@ -101,10 +103,12 @@ describe('ApiKeyGuard', () => {
 
 describe('JwtAuthGuard delegation', () => {
   let apiKeyGuard: { canActivate: jest.Mock };
+  let inviteTokenGuard: { canActivate: jest.Mock };
   let passport: jest.SpyInstance;
 
   beforeEach(() => {
     apiKeyGuard = { canActivate: jest.fn().mockResolvedValue(true) };
+    inviteTokenGuard = { canActivate: jest.fn().mockResolvedValue(true) };
     // `AuthGuard('jwt')` builds the base class; this is the JWT strategy run.
     passport = jest
       .spyOn(Object.getPrototypeOf(JwtAuthGuard.prototype), 'canActivate')
@@ -117,6 +121,7 @@ describe('JwtAuthGuard delegation', () => {
     return new JwtAuthGuard(
       reflectorFor(metadata),
       apiKeyGuard as unknown as ApiKeyGuard,
+      inviteTokenGuard as unknown as InviteTokenGuard,
     );
   }
 
@@ -146,6 +151,19 @@ describe('JwtAuthGuard delegation', () => {
 
     expect(apiKeyGuard.canActivate).toHaveBeenCalledWith(context);
     expect(passport).not.toHaveBeenCalled();
+  });
+
+  it('hands an @InviteCredential() route to InviteTokenGuard', async () => {
+    // Someone accepting an invitation has no account to log into yet, so there
+    // is no bearer token — but there is still a credential, and it is checked.
+    // This is what keeps the accept screen off the `@Public()` list.
+    const context = contextFor(requestWith({ 'x-invite-token': 'inv_secret' }));
+
+    await guardWith({ [INVITE_CREDENTIAL_KEY]: true }).canActivate(context);
+
+    expect(inviteTokenGuard.canActivate).toHaveBeenCalledWith(context);
+    expect(passport).not.toHaveBeenCalled();
+    expect(apiKeyGuard.canActivate).not.toHaveBeenCalled();
   });
 
   it('prefers @Public() over the service-credential marker', () => {

@@ -81,6 +81,41 @@ Three things follow from it, and all three are review points:
 - **It belongs on runtime read endpoints only.** A CMS write reachable by a
   key that lives in a client bundle is the key becoming an editor account.
 
+### `@InviteCredential()` is the fifth marker, and it is not `@Public()` either
+
+Someone accepting an invitation has no account they can log into yet, so there
+is no bearer token to present — but there *is* a credential, and it is checked.
+`JwtAuthGuard` reads the marker and delegates to `InviteTokenGuard`, which
+SHA-256s the `X-Invite-Token` header, looks up an outstanding, unexpired
+`user_invitations` row and attaches `request.invitation`.
+
+```ts
+// ✅ — the accept screen: authenticated, by a single-use token
+@InviteCredential()
+@Get('me')
+preview(@CurrentInvitation('id') invitationId: string) { ... }
+
+// ❌ — the same endpoint, open to anyone who knows a user id
+@Public()
+@Get(':userId/invitation')
+```
+
+The same three review points as the fourth marker, plus one of its own:
+
+- **`@Roles()` on such a route is meaningless.** There is no `request.user`.
+  The scope check is the token: it can only ever address the one account it was
+  minted for, which is why the accept handler takes no `:id` at all.
+- **Read the credential with `@CurrentInvitation()`**, never
+  `request.invitation`.
+- **It belongs on the two accept-flow routes only.** Anything else reachable
+  with an invitation token is reachable by whoever forwarded the email.
+- **The token travels in a header, never in the path.** A secret in a URL lands
+  in access logs, browser history and `Referer`. The dashboard reads
+  `?token=` off the invite link and moves it into the header.
+
+Every disqualifier — unknown, expired, revoked, already accepted — answers the
+same 401. A caller who can tell them apart can enumerate who has been invited.
+
 ---
 
 ## Rule 3 — 401 and 403 mean different things

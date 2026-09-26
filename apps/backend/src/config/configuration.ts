@@ -35,6 +35,13 @@ export type JwtConfig = {
   audience: string;
 };
 
+export type InvitationConfig = {
+  /** `15m` / `7d` form, parsed by `ttlToSeconds` at the point of use. */
+  ttl: string;
+  /** Origin of the dashboard that renders the accept screen. */
+  dashboardUrl: string;
+};
+
 export type DatabaseConfig = {
   host: string;
   port: number;
@@ -66,6 +73,15 @@ export const jwtConfig = registerAs('jwt', (): JwtConfig => {
     refreshTtl: env.JWT_REFRESH_TTL,
     issuer: env.JWT_ISSUER,
     audience: env.JWT_AUDIENCE,
+  };
+});
+
+export const invitationConfig = registerAs('invitation', (): InvitationConfig => {
+  const env = validateEnv(process.env);
+
+  return {
+    ttl: env.INVITE_TTL,
+    dashboardUrl: env.DASHBOARD_URL,
   };
 });
 

@@ -78,10 +78,12 @@ as a surprise.
 
 ### Migrations
 
-**One new migration in this entire plan:** `AddApiKeys` (B7). The Phase 1
-schema already covers everything else. If a ticket seems to need a schema
-change, re-read `.claude/rules/cms-domain-invariants.md` first — particularly
-Rule 1, since "support French" is an `INSERT`, not a migration.
+**Two new migrations in this entire plan:** `AddApiKeys` (B7) and
+`AddUserInvitations` (B13). The Phase 1 schema already covers everything else.
+Both are hand-written, and for the same reason: each carries a partial index
+TypeORM cannot generate. If a ticket seems to need a schema change, re-read
+`.claude/rules/cms-domain-invariants.md` first — particularly Rule 1, since
+"support French" is an `INSERT`, not a migration.
 
 ---
 
@@ -91,13 +93,13 @@ Rule 1, since "support French" is an `INSERT`, not a migration.
 B1 ─┬─ B2 ── B3 ─┬─ B4 ── B5 ── B6 ─┬─ B8 ── B10
     │            │                  └─ B11
     │            └─ B7 ─────────────┘
-    └─ B9
+    └─ B9 ── B13
 
 B12 last
 ```
 
-B9 can be picked up any time after B1. Everything else is linear along the
-arrows.
+B9 can be picked up any time after B1, and B13 follows it. Everything else is
+linear along the arrows.
 
 ### New dependencies
 
@@ -680,19 +682,25 @@ map to a response shape.
   session including the caller's own. A change made because credentials leaked
   that leaves the attacker's session alive reports success while fixing nothing.
 
-**Gap this ticket surfaces — needs a decision**
+**Gaps this ticket surfaced — both closed by B13**
 
 `POST /users` creates an account with status `invited` and a password hash over
 bytes that are generated, used once and dropped. That is the ticket as written,
-and it is the right shape — but **nothing in B1-B12 provides an
+and it is the right shape — but **nothing in B1-B12 provided an
 invite-acceptance or admin-set-password flow**, so a user created through this
-endpoint can never log in. Today the only usable account is the one
+endpoint could never log in, and the only usable account was the one
 `seed-admin` creates.
 
 Implemented as specified rather than papered over: adding an optional
-`password` to the create payload would make the endpoint work immediately, but
-that is a different product decision (admin-chosen credentials vs. an invite
-email) and it should be made on purpose, not inside this ticket.
+`password` to the create payload would have made the endpoint work immediately,
+but that is a different product decision (admin-chosen credentials vs. an
+invitation) and it should be made on purpose, not inside this ticket. It was
+made in B13.
+
+The second gap was the one this ticket's self-disable check only half covered:
+demoting or disabling the **last active admin** was still allowed, and there is
+no way back from it through an API where every recovery route is
+`@Roles('admin')`. Also B13.
 
 ---
 
@@ -877,6 +885,149 @@ touching the database.
 
 ---
 
+## B13 — Invitations and the last-admin guard
+
+*After B9. The two gaps B9 surfaced, closed together because they are the same
+question — "can anyone still get in?" — asked at the two ends of an account's
+life.*
+
+### The product decision B9 left open
+
+**An admin mints a single-use link and delivers it.** Not an admin-chosen
+password, which is a credential two people know and which arrives over whatever
+channel the admin happened to use. Not an emailed invitation either — there is
+no mail transport in the CMS and adding SES to close a user-management gap is a
+deployment decision wearing a feature's clothes.
+
+The token comes back **exactly once**, in the response that mints it, with an
+`acceptUrl` built from `DASHBOARD_URL`. That is the contract
+`POST /apps/:appId/api-keys` already set, and it means the delivery channel is
+the admin's problem rather than the API's — which is the honest description of
+where it actually sits until a mail transport exists.
+
+### Migration `AddUserInvitations`
+
+Hand-written: the invariant is a partial unique index, which TypeORM cannot
+express from decorators.
+
+```
+user_invitations
+  id           uuid pk default gen_random_uuid()
+  user_id      uuid NOT NULL → users ON DELETE CASCADE
+  token_hash   varchar(255) NOT NULL UNIQUE
+  expires_at   timestamptz  NOT NULL
+  accepted_at  timestamptz
+  revoked_at   timestamptz
+  invited_by   uuid → users ON DELETE SET NULL
+  created_at, updated_at timestamptz NOT NULL default now()
+
+  CREATE UNIQUE INDEX uq_user_invitations_outstanding
+    ON user_invitations (user_id)
+    WHERE accepted_at IS NULL AND revoked_at IS NULL
+```
+
+`CASCADE` on `user_id`, unlike `api_keys.created_by`: an invitation with no
+account to accept into is not an audit record, it is a dangling credential.
+
+The partial index is the ticket's load-bearing constraint — **at most one
+outstanding invitation per user**. Re-issuing therefore has to revoke the
+previous token in the same transaction rather than merely being expected to,
+because two live tokens for one account means cancelling one of them
+accomplishes nothing.
+
+### `@InviteCredential()` — the fifth marker
+
+Auth Rule 2 caps `@Public()` at three routes and names the runtime endpoints as
+explicitly not an exception. The accept flow is not one either. It follows B7's
+precedent exactly: a marker decorator, a guard `JwtAuthGuard` delegates to, and
+`@Public()` still at three.
+
+`InviteTokenGuard` SHA-256s `X-Invite-Token`, looks up an outstanding,
+unexpired row and attaches `request.invitation`. The token is a **header**, not
+a path parameter — a secret in a URL lands in access logs, browser history and
+`Referer`. The dashboard reads `?token=` off the invite link and moves it into
+the header.
+
+Update `.claude/rules/nestjs-auth.md` and `.claude/agents/audit-api-auth/` in
+the same PR, as B7 did, or the auditor reports both routes as leaks and the
+next person learns to ignore it.
+
+### The surface
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| POST | `/users` | admin | now also mints the first invitation, same transaction |
+| GET | `/users/:id/invitations` | admin | the outstanding one, or `null`. Never the token |
+| POST | `/users/:id/invitations` | admin | re-issue; revokes whatever was outstanding |
+| DELETE | `/users/:id/invitations` | admin | cancel, without touching the account |
+| GET | `/invitations/me` | `X-Invite-Token` | renders the accept screen |
+| POST | `/invitations/accept` | `X-Invite-Token` | sets the first password, activates, signs in |
+
+### The last-admin guard
+
+`assertAnotherActiveAdminRemains` runs on two paths: a `PATCH` that demotes an
+active admin, and a `disable` of one. 422 rather than 403 — the caller has
+every permission required and the request is well-formed; it is the resulting
+*state* the domain refuses.
+
+It is a `SELECT … FOR UPDATE` over the active-admin rows, not a count.
+Two admins demoting each other at the same instant would both read "one other
+admin exists" and both commit, leaving zero — and every route that could undo
+that is `@Roles('admin')`, so the fix would be a `psql` session against
+production. `ORDER BY id` keeps lock acquisition in one direction so the pair
+blocks rather than deadlocks, and `getMany()` rather than `getCount()` because
+Postgres refuses `FOR UPDATE` alongside an aggregate.
+
+**Done when**
+
+- [x] A user created through `POST /users` can log in, and only by spending the
+      token that response returned
+- [x] The plaintext token appears in the create/re-issue response and in no
+      other response, including `GET /users/:id/invitations`
+- [x] Re-issuing kills the previous link
+- [x] A spent token, an expired token and a cancelled token all answer 401 —
+      the same 401, so the endpoint is not an oracle for who has been invited
+- [x] A CMS bearer token is not accepted on the invite routes, and an invite
+      token is not accepted anywhere else
+- [x] Demoting or disabling the last active admin → 422
+- [x] `@Public()` is still carried by exactly three routes
+
+**Decisions taken while building it**
+
+- **Accepting signs the new user in.** The alternative is a redirect to a login
+  form, immediately after the person has typed their new password once already
+  — and it spends one of the five logins a minute the throttler allows. It
+  reuses `AuthService.login` rather than minting tokens directly, so the
+  rotation and session-persistence rules cannot drift.
+- **That login runs *outside* the activation transaction.** Rolling the
+  activation back because session persistence hiccuped would burn the token and
+  leave the account permanently unusable.
+- **The accept handler re-reads the invitation under a row lock**, rather than
+  trusting what the guard resolved a moment earlier. Two submissions of the
+  form arriving together would otherwise both hash a password, the second
+  silently replacing the first.
+- **A rejected accept does not burn the token.** A password below the twelve
+  character floor is a 400 from the pipe, before the service runs — a typo that
+  invalidated the invitation would be a support ticket per typo.
+- **`InvitationsService` lives in `UsersModule`**, not in its own feature
+  module. It is the user lifecycle, not a separate feature, and a second module
+  would need `TypeOrmModule.forFeature([User])` of its own — which is the
+  module-structure rule's example of reaching around another feature's surface.
+  It carries a `forwardRef` for a genuine *import* cycle:
+  `users.service` → `invitations.service` → `auth.service` → `users.service`.
+- **Only an `invited` account can be invited.** Minting a token for an active
+  one is a password reset wearing the wrong name, and for a disabled one it
+  undoes the disable. Both answer 422.
+- **Self-disable stays a separate check with its own message.** It is the case
+  an admin hits by accident; the last-admin case is the one they hit while
+  reorganising the team, and the two need different things said to them.
+- **The last-admin guard does not cover a `DELETE`,** because there is none —
+  `translation_value_versions.changed_by` points at these rows, so accounts are
+  disabled rather than deleted. If a delete endpoint ever lands, it needs this
+  check too.
+
+---
+
 ## MVP acceptance criteria, mapped
 
 Architecture doc §14, against the tickets that satisfy each one.
@@ -887,7 +1038,7 @@ Architecture doc §14, against the tickets that satisfy each one.
 | Protected APIs reject requests with no Bearer token | done; B10 proves it for every route |
 | Expired tokens renew through the refresh flow | done |
 | Logout and deactivation revoke refresh sessions | logout done; deactivation B9 |
-| Admins manage applications, modules, locales, users | B2, B3, B4, B9 |
+| Admins manage applications, modules, locales, users | B2, B3, B4, B9, B13 |
 | Editors create keys and edit translations in permitted scopes | B5, B6 (role-only scope; see the decision table) |
 | Arabic and English work end to end, including RTL | B2, B3, B8 |
 | A new locale is enabled with no migration | B2 |

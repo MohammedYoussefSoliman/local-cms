@@ -34,6 +34,18 @@ const envSchema = z.object({
   JWT_ISSUER: z.string().min(1),
   JWT_AUDIENCE: z.string().min(1),
 
+  /**
+   * Where the dashboard is served from. Used to build the invitation accept
+   * link an admin hands to a new user — the API knows the token, only this
+   * knows the URL that can spend it.
+   */
+  DASHBOARD_URL: z.string().url().default('http://localhost:4051'),
+  /**
+   * How long an invitation stays acceptable. Long enough to survive a weekend,
+   * short enough that a token forwarded in an old email thread is dead.
+   */
+  INVITE_TTL: z.string().default('7d'),
+
   CORS_ORIGINS: z
     .string()
     .default('')

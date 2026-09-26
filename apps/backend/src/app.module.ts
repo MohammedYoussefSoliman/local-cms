@@ -8,7 +8,12 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { appConfig, databaseConfig, jwtConfig } from './config/configuration';
+import {
+  appConfig,
+  databaseConfig,
+  invitationConfig,
+  jwtConfig,
+} from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { typeOrmConfig } from './config/typeorm.config';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
@@ -28,7 +33,7 @@ import { UsersModule } from './modules/users/users.module';
       isGlobal: true,
       cache: true,
       validate: validateEnv,
-      load: [appConfig, jwtConfig, databaseConfig],
+      load: [appConfig, jwtConfig, databaseConfig, invitationConfig],
     }),
     TypeOrmModule.forRootAsync({
       inject: [databaseConfig.KEY],

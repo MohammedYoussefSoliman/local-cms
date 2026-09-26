@@ -9,7 +9,12 @@ import request from 'supertest';
 
 import type { UserRole } from '@cms/domain';
 
-import { IS_PUBLIC_KEY, ROLES_KEY, SERVICE_CREDENTIAL_KEY } from '../src/common';
+import {
+  INVITE_CREDENTIAL_KEY,
+  IS_PUBLIC_KEY,
+  ROLES_KEY,
+  SERVICE_CREDENTIAL_KEY,
+} from '../src/common';
 
 import {
   type TestUser,
@@ -52,6 +57,7 @@ type Route = {
   url: string;
   isPublic: boolean;
   isServiceCredential: boolean;
+  isInviteCredential: boolean;
   roles: UserRole[] | undefined;
 };
 
@@ -107,6 +113,10 @@ function collectRoutes(app: INestApplication, prefix: string): Route[] {
             Reflect.getMetadata(SERVICE_CREDENTIAL_KEY, handler as object) ===
               true ||
             Reflect.getMetadata(SERVICE_CREDENTIAL_KEY, metatype) === true,
+          isInviteCredential:
+            Reflect.getMetadata(INVITE_CREDENTIAL_KEY, handler as object) ===
+              true ||
+            Reflect.getMetadata(INVITE_CREDENTIAL_KEY, metatype) === true,
           roles:
             Reflect.getMetadata(ROLES_KEY, handler as object) ??
             Reflect.getMetadata(ROLES_KEY, metatype),
@@ -188,6 +198,16 @@ describe('Authentication coverage (e2e)', () => {
 
       expect(both.map((route) => route.signature)).toEqual([]);
     });
+
+    it('is never combined with the invite-credential marker', () => {
+      // Same trap, same precedence: an accept route that is also `@Public()`
+      // lets anyone activate any invited account without holding a token.
+      const both = routes.filter(
+        (route) => route.isPublic && route.isInviteCredential,
+      );
+
+      expect(both.map((route) => route.signature)).toEqual([]);
+    });
   });
 
   describe('@ServiceCredential()', () => {
@@ -199,6 +219,33 @@ describe('Authentication coverage (e2e)', () => {
       );
 
       expect(withRoles.map((route) => route.signature)).toEqual([]);
+    });
+  });
+
+  describe('@InviteCredential()', () => {
+    it('is never combined with @Roles()', () => {
+      // An invitation token has no `request.user` either. The scope check is
+      // the token itself: it can only ever address the account it was minted
+      // for.
+      const withRoles = routes.filter(
+        (route) => route.isInviteCredential && route.roles?.length,
+      );
+
+      expect(withRoles.map((route) => route.signature)).toEqual([]);
+    });
+
+    it('is carried by the accept flow, and only by it', () => {
+      // Not an allowlist the way `@Public()` has one — the marker is safe by
+      // construction — but a new route picking it up by accident is worth
+      // seeing in a diff.
+      const actual = routes
+        .filter((route) => route.isInviteCredential)
+        .map((route) => route.signature);
+
+      expect(actual).toEqual([
+        'GET /api/invitations/me',
+        'POST /api/invitations/accept',
+      ]);
     });
   });
 
@@ -258,6 +305,7 @@ describe('Authentication coverage (e2e)', () => {
         (route) =>
           !route.isPublic &&
           !route.isServiceCredential &&
+          !route.isInviteCredential &&
           route.roles?.length &&
           !route.roles.includes('editor'),
       );

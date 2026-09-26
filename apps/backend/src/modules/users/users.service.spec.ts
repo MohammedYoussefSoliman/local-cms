@@ -7,9 +7,11 @@ import {
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as argon2 from 'argon2';
+import { DataSource } from 'typeorm';
 
 import { AuthService } from '../auth/auth.service';
 
+import { InvitationsService } from './invitations.service';
 import { UsersService } from './users.service';
 
 function userRow(overrides: Partial<User> = {}): User {
@@ -30,13 +32,21 @@ describe('UsersService', () => {
   let service: UsersService;
   let users: Record<string, jest.Mock>;
   let auth: { revokeAllForUser: jest.Mock };
+  let invitations: { issueWithin: jest.Mock };
   let builder: Record<string, jest.Mock>;
 
   beforeEach(async () => {
     builder = {
+      select: jest.fn(() => builder),
       addSelect: jest.fn(() => builder),
       where: jest.fn(() => builder),
+      andWhere: jest.fn(() => builder),
+      orderBy: jest.fn(() => builder),
+      setLock: jest.fn(() => builder),
       getOne: jest.fn(async () => null),
+      // The active-admin lock query. Empty by default: the fixtures below are
+      // editors, so nothing reaches it unless a test says otherwise.
+      getMany: jest.fn(async () => []),
     };
 
     users = {
@@ -48,12 +58,38 @@ describe('UsersService', () => {
       createQueryBuilder: jest.fn(() => builder),
     };
     auth = { revokeAllForUser: jest.fn() };
+    invitations = {
+      issueWithin: jest.fn(async () => ({
+        id: 'invitation-1',
+        userId: 'user-1',
+        expiresAt: '2026-01-08T00:00:00.000Z',
+        invitedBy: 'admin-9',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        token: 'inv_plaintext',
+        acceptUrl: 'http://localhost:4051/invite?token=inv_plaintext',
+      })),
+    };
+
+    /**
+     * Every write path that has to be atomic runs inside a transaction, and the
+     * manager it hands back is the same repository mock — so an assertion on
+     * `users.save` still sees the write regardless of which side of the
+     * transaction boundary it happened on.
+     */
+    const dataSource = {
+      transaction: jest.fn(
+        async (run: (manager: { getRepository: () => unknown }) => unknown) =>
+          run({ getRepository: () => users }),
+      ),
+    };
 
     const moduleRef: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
         { provide: getRepositoryToken(User), useValue: users },
         { provide: AuthService, useValue: auth },
+        { provide: InvitationsService, useValue: invitations },
+        { provide: DataSource, useValue: dataSource },
       ],
     }).compile();
 
@@ -62,18 +98,33 @@ describe('UsersService', () => {
 
   describe('create', () => {
     it('creates an invited account with an unknowable password', async () => {
-      const result = await service.create({
-        email: 'new@example.test',
-        name: 'New',
-        role: 'editor',
-      });
+      const result = await service.create(
+        { email: 'new@example.test', name: 'New', role: 'editor' },
+        'admin-9',
+      );
 
       const saved = users.save.mock.calls[0][0] as User;
       expect(saved.status).toBe('invited');
       // The plaintext is generated, hashed and dropped — there is no password,
-      // rather than a guessable one.
+      // rather than a guessable one. The invitation is the only way in.
       expect(saved.passwordHash).toMatch(/^\$argon2/);
       expect(result).not.toHaveProperty('passwordHash');
+    });
+
+    it('mints the first invitation in the same transaction', async () => {
+      // A user row with no token is an account nobody can reach, and nobody
+      // can see is unreachable — the state B9 shipped and this closes.
+      const result = await service.create(
+        { email: 'new@example.test', name: 'New', role: 'admin' },
+        'admin-9',
+      );
+
+      expect(invitations.issueWithin).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.any(String),
+        'admin-9',
+      );
+      expect(result.invitation.token).toBe('inv_plaintext');
     });
   });
 
@@ -149,6 +200,70 @@ describe('UsersService', () => {
 
       expect(users.save).not.toHaveBeenCalled();
       expect(auth.revokeAllForUser).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('the last active admin', () => {
+    const lastAdmin = () =>
+      userRow({ id: 'admin-1', role: 'admin', status: 'active' });
+
+    it('422s a demotion that would leave nobody able to administer', async () => {
+      users.findOne.mockResolvedValue(lastAdmin());
+      // The lock query sees only the account being demoted.
+      builder.getMany.mockResolvedValue([{ id: 'admin-1' }]);
+
+      await expect(
+        service.update('admin-1', { role: 'editor' }),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+
+      expect(users.save).not.toHaveBeenCalled();
+    });
+
+    it('allows the demotion once a second admin exists', async () => {
+      users.findOne.mockResolvedValue(lastAdmin());
+      builder.getMany.mockResolvedValue([{ id: 'admin-1' }, { id: 'admin-2' }]);
+
+      const result = await service.update('admin-1', { role: 'editor' });
+
+      expect(result.role).toBe('editor');
+    });
+
+    it('422s disabling the only remaining admin', async () => {
+      // Self-disable is refused separately; this is the path that was not —
+      // one admin disabling the only other one, or disabling an admin after
+      // having been demoted in between.
+      users.findOne.mockResolvedValue(lastAdmin());
+      builder.getMany.mockResolvedValue([{ id: 'admin-1' }]);
+
+      await expect(
+        service.disable('admin-1', 'someone-else'),
+      ).rejects.toBeInstanceOf(UnprocessableEntityException);
+
+      expect(users.save).not.toHaveBeenCalled();
+      expect(auth.revokeAllForUser).not.toHaveBeenCalled();
+    });
+
+    it('takes a row lock over the active admins, in a fixed order', async () => {
+      // Without the lock two admins demoting each other at the same instant
+      // both read "one other admin exists" and both commit, leaving zero. The
+      // ordering is what makes the pair block instead of deadlock.
+      users.findOne.mockResolvedValue(lastAdmin());
+      builder.getMany.mockResolvedValue([{ id: 'admin-1' }, { id: 'admin-2' }]);
+
+      await service.update('admin-1', { role: 'editor' });
+
+      expect(builder.setLock).toHaveBeenCalledWith('pessimistic_write');
+      expect(builder.orderBy).toHaveBeenCalledWith('user.id', 'ASC');
+    });
+
+    it('leaves a non-admin demotion and an editor disable alone', async () => {
+      users.findOne.mockResolvedValue(userRow());
+
+      await service.update('user-1', { name: 'Renamed' });
+      await service.disable('user-1', 'admin-9');
+
+      // No reason to lock the admin set for a write that cannot change it.
+      expect(builder.getMany).not.toHaveBeenCalled();
     });
   });
 
